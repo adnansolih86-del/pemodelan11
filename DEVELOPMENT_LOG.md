@@ -223,7 +223,7 @@ Examples:
 ## 🚀 Next Steps (Optional Enhancements)
 
 Future improvements yang dapat dipertimbangkan:
-- [ ] Add caching untuk analysis results
+- [x] Add caching untuk analysis results (implemented with @st.cache_data for fit_transform, topics_over_time, and stance analysis)
 - [ ] Export ke Excel dengan formatting
 - [ ] Visualization customization options
 - [ ] Real-time data streaming

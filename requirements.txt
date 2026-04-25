@@ -9,3 +9,4 @@ umap-learn
 hdbscan
 transformers
 torch
+gensim

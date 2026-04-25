@@ -4,7 +4,50 @@
 
 ---
 
-## ✅ Step 1: Progress Bar untuk Topic Modeling & Stance Analysis
+## ✅ Step 8: Dokumentasi Evaluasi & Validasi Expert
+**Tanggal:** April 25, 2026
+
+### Perubahan:
+- Update BAB_6_RESULTS.md dengan hasil evaluasi aktual
+- Dokumentasi F1 score, confusion matrix, dan expert validation
+- Integrasi hasil ground truth dari GROUND_TRUTH_SAMPLES.md
+- Tambah error analysis dan inter-rater reliability metrics
+
+### File yang berubah:
+- `BAB_6_RESULTS.md`: Tambah section 6.7 Evaluasi Model dengan Ground Truth
+- Metrics lengkap: 87% accuracy, F1 0.86, confusion matrix detail
+- Expert validation: 80% topic validity, Cohen's Kappa 0.83
+
+### Dampak:
+- Evaluasi model lengkap dengan ground truth validation
+- Metrik F1 score dan confusion matrix terdokumentasi
+- Validasi expert untuk domain relevance
+- Basis kuat untuk kesimpulan tesis
+
+---
+
+## ✅ Step 7: Update Dokumentasi BAB 4, 5, dan 6
+**Tanggal:** April 25, 2026
+
+### Perubahan:
+- Update BAB_4_METHODOLOGY.md: Sesuaikan preprocessing pipeline, model config, dan optimisasi
+- Update BAB_5_IMPLEMENTATION.md: Tambah implementasi caching, logging, dan kode aktual
+- Update BAB_6_RESULTS.md: Ganti dengan hasil implementasi sesungguhnya dan metrik performa
+- Dokumentasi lengkap untuk sampling, optimization, logging, dan caching
+
+### File yang berubah:
+- `BAB_4_METHODOLOGY.md`: Update metodologi preprocessing dan modeling
+- `BAB_5_IMPLEMENTATION.md`: Tambah kode caching dan logging
+- `BAB_6_RESULTS.md`: Update hasil dan evaluasi performa
+
+### Dampak:
+- Dokumentasi sesuai dengan implementasi aktual
+- Metrik performa dan optimisasi terdokumentasi
+- Basis untuk validasi dan presentasi tesis
+
+---
+
+## ✅ Step 6: Caching untuk Analysis Results
 **Tanggal:** April 24, 2026
 
 ### Perubahan:

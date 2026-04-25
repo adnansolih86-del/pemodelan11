@@ -5,8 +5,12 @@ from sentence_transformers import SentenceTransformer
 from transformers import pipeline
 import re
 import string
+import logging
 
 st.set_page_config(page_title="Dynamic Topic Modeling & Stance Analysis", layout="wide")
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 st.title("📊 Dynamic Topic Modeling & Stance Analysis")
 st.write("Analisis topik dinamis pada unggahan dan analisis stance pada komentar")
@@ -16,11 +20,59 @@ uploaded_file = st.file_uploader("Upload dataset CSV", type=["csv"])
 
 @st.cache_resource
 def load_embedding_model():
-    return SentenceTransformer("all-MiniLM-L6-v2")
+    logging.info("Starting load_embedding_model")
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    logging.info("Completed load_embedding_model")
+    return model
 
 @st.cache_resource
 def load_sentiment_model():
-    return pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment-latest")
+    logging.info("Starting load_sentiment_model")
+    model = pipeline("sentiment-analysis", model="cardiffnlp/twitter-roberta-base-sentiment-latest")
+    logging.info("Completed load_sentiment_model")
+    return model
+
+@st.cache_data
+def cached_fit_transform(_topic_model, _docs):
+    """Cached wrapper for BERTopic fit_transform to avoid recomputation"""
+    logging.info(f"Starting cached fit_transform on {len(_docs)} documents")
+    topics, probs = _topic_model.fit_transform(_docs)
+    logging.info(f"Completed cached fit_transform: {len(set(topics))} topics found")
+    return topics, probs
+
+@st.cache_data
+def cached_topics_over_time(_topic_model, _docs, _timestamps, _nr_bins=20):
+    """Cached wrapper for topics_over_time calculation"""
+    logging.info("Calculating cached topics over time")
+    try:
+        result = _topic_model.topics_over_time(_docs, _timestamps, nr_bins=_nr_bins)
+    except ValueError as e:
+        logging.warning(f"Error dengan nr_bins={_nr_bins}: {e}. Menggunakan nr_bins=10.")
+        result = _topic_model.topics_over_time(_docs, _timestamps, nr_bins=10)
+    logging.info("Completed cached topics over time calculation")
+    return result
+
+@st.cache_data
+def cached_stance_analysis(_sentiment_model, _comments_list, _batch_size=20):
+    """Cached wrapper for stance analysis on comments"""
+    logging.info(f"Starting cached stance analysis on {len(_comments_list)} comments")
+    sentiments = []
+    confidences = []
+    
+    total_batches = (len(_comments_list) + _batch_size - 1) // _batch_size
+    
+    for batch_idx in range(total_batches):
+        start_idx = batch_idx * _batch_size
+        end_idx = min((batch_idx + 1) * _batch_size, len(_comments_list))
+        batch = _comments_list[start_idx:end_idx]
+        
+        batch_sentiments = _sentiment_model(batch)
+        for sentiment in batch_sentiments:
+            sentiments.append(sentiment['label'])
+            confidences.append(sentiment['score'])
+    
+    logging.info("Completed cached stance analysis")
+    return sentiments, confidences
 
 def preprocess_text(text):
     """
@@ -42,7 +94,9 @@ def preprocess_text(text):
     Returns:
         Preprocessed text
     """
+    logging.info(f"Starting preprocess_text for text length: {len(str(text))}")
     if pd.isna(text):
+        logging.info("Completed preprocess_text: empty text")
         return ""
     
     text = str(text)
@@ -71,6 +125,7 @@ def preprocess_text(text):
     # 8. Hapus multiple spaces dan leading/trailing whitespace
     text = re.sub(r'\s+', ' ', text).strip()
     
+    logging.info(f"Completed preprocess_text: output length: {len(text)}")
     return text
 
 def preprocess_dataframe(df, text_column):
@@ -84,7 +139,8 @@ def preprocess_dataframe(df, text_column):
     Returns:
         Dataframe dengan kolom baru yang preprocessed
     """
-    progress_bar = st.progress(0)
+    logging.info(f"Starting preprocess_dataframe with {len(df)} rows, column: {text_column}")
+    progress_bar = st.progress(0.0)
     status_text = st.empty()
     
     preprocessed_texts = []
@@ -97,12 +153,13 @@ def preprocess_dataframe(df, text_column):
         # Update progress setiap 10 item
         if (idx + 1) % max(1, total // 20) == 0:
             progress = int((idx + 1) / total * 100)
-            progress_bar.progress(progress)
+            progress_bar.progress(progress / 100)
             status_text.text(f"Preprocessing... {idx + 1}/{total} ({progress}%)")
     
-    progress_bar.progress(100)
+    progress_bar.progress(1.0)
     status_text.text("✅ Preprocessing selesai!")
     
+    logging.info(f"Completed preprocess_dataframe: processed {len(preprocessed_texts)} texts")
     return preprocessed_texts
 
 def convert_df_to_csv(df):
@@ -296,17 +353,19 @@ if uploaded_file:
         st.divider()
 
         if st.button("🚀 Jalankan Analisis"):
+            logging.info("Starting analysis: Topic Modeling and Stance Analysis")
             # ========== TOPIC MODELING ==========
             st.subheader("📊 Topic Modeling Processing")
             progress_container = st.container()
             
             with progress_container:
                 # Progress 1: Model Initialization
-                progress_bar = st.progress(0)
+                progress_bar = st.progress(0.0)
                 status_text = st.empty()
                 
                 status_text.text("🔄 Tahap 1/4: Inisialisasi Model...")
-                progress_bar.progress(25)
+                progress_bar.progress(0.25)
+                logging.info("Initializing BERTopic model")
                 topic_model = BERTopic(embedding_model=embedding_model)
                 
                 # Progress 2: Fitting & Transforming with detailed progress
@@ -333,8 +392,8 @@ if uploaded_file:
                     status_metric.metric("Status", "Memulai...")
                 
                 # Main progress bar
-                main_progress_bar = st.progress(0)
-                sub_progress_bar = st.progress(0)
+                main_progress_bar = st.progress(0.0)
+                sub_progress_bar = st.progress(0.0)
                 detail_text = st.empty()
                 time_info = st.empty()
                 
@@ -356,10 +415,10 @@ if uploaded_file:
                 for i in range(30):
                     processed_metric.metric("✓ Diproses", f"{len(docs) // 100 * (i+1):,}")
                     progress_perc_metric.metric("% Progress", f"{((i+1)/100)*50:.1f}%")
-                    main_progress_bar.progress(25 + (i+1)/100 * 25)
+                    main_progress_bar.progress((25 + (i+1)/100 * 25) / 100)
                     sub_progress_bar.progress((i+1)/100)
                     elapsed = time.time() - start_time
-                    time_info.write(f"⏱️ Waktu elapsed: {elapsed:.1f}s", help="Estimasi waktu yang sudah berlalu")
+                    time_info.write(f"⏱️ Waktu elapsed: {elapsed:.1f}s")
                     time.sleep(0.05)
                 
                 detail_text.write("""
@@ -374,10 +433,10 @@ if uploaded_file:
                 for i in range(30, 70):
                     processed_metric.metric("✓ Diproses", f"{len(docs) // 100 * (i+1):,}")
                     progress_perc_metric.metric("% Progress", f"{((i+1)/100)*50:.1f}%")
-                    main_progress_bar.progress(25 + (i+1)/100 * 25)
+                    main_progress_bar.progress((25 + (i+1)/100 * 25) / 100)
                     sub_progress_bar.progress((i+1-30)/70)
                     elapsed = time.time() - start_time
-                    time_info.write(f"⏱️ Waktu elapsed: {elapsed:.1f}s", help="Estimasi waktu yang sudah berlalu")
+                    time_info.write(f"⏱️ Waktu elapsed: {elapsed:.1f}s")
                     time.sleep(0.05)
                 
                 detail_text.write("""
@@ -393,10 +452,10 @@ if uploaded_file:
                 for i in range(70, 100):
                     processed_metric.metric("✓ Diproses", f"{len(docs):,}")
                     progress_perc_metric.metric("% Progress", f"{((i+1)/100)*50:.1f}%")
-                    main_progress_bar.progress(25 + (i+1)/100 * 25)
+                    main_progress_bar.progress((25 + (i+1)/100 * 25) / 100)
                     sub_progress_bar.progress((i+1-70)/30)
                     elapsed = time.time() - start_time
-                    time_info.write(f"⏱️ Waktu elapsed: {elapsed:.1f}s", help="Estimasi waktu yang sudah berlalu")
+                    time_info.write(f"⏱️ Waktu elapsed: {elapsed:.1f}s")
                     time.sleep(0.05)
                 
                 detail_text.write("""
@@ -413,22 +472,19 @@ if uploaded_file:
                 status_metric.metric("Status", "Fit-Transform Selesai")
                 
                 # Jalankan actual fit_transform
-                topics, probs = topic_model.fit_transform(docs)
+                topics, probs = cached_fit_transform(topic_model, docs)
                 
                 st.markdown("---")
                 
                 # Progress 3: Topics Over Time
                 status_text.text("🔄 Tahap 3/4: Menghitung Topics Over Time...")
-                progress_bar.progress(75)
-                try:
-                    topics_over_time = topic_model.topics_over_time(docs, timestamps, nr_bins=20)
-                except ValueError as e:
-                    st.warning(f"Error dengan nr_bins=20: {e}. Menggunakan nr_bins=10.")
-                    topics_over_time = topic_model.topics_over_time(docs, timestamps, nr_bins=10)
+                progress_bar.progress(0.75)
+                logging.info("Calculating topics over time")
+                topics_over_time = cached_topics_over_time(topic_model, docs, timestamps, nr_bins=20)
                 
                 # Progress 4: Complete
                 status_text.text("✅ Tahap 4/4: Selesai!")
-                progress_bar.progress(100)
+                progress_bar.progress(1.0)
 
             st.success("✅ Topic Modeling Selesai!")
 
@@ -466,31 +522,26 @@ if uploaded_file:
             
             comments_list = comments_df['full_text_comments_preprocessed'].tolist()
             batch_size = 20
-            total_batches = (len(comments_list) + batch_size - 1) // batch_size
             
-            progress_bar = st.progress(0)
+            logging.info(f"Starting stance analysis on {len(comments_list)} comments with batch size {batch_size}")
+            progress_bar = st.progress(0.0)
             status_text = st.empty()
             comments_df['sentiment'] = None
             comments_df['confidence'] = None
             
-            for batch_idx in range(total_batches):
-                start_idx = batch_idx * batch_size
-                end_idx = min((batch_idx + 1) * batch_size, len(comments_list))
-                batch = comments_list[start_idx:end_idx]
-                
-                status_text.text(f"🔄 Menganalisis Stance... ({start_idx + 1}/{len(comments_list)})")
-                sentiments = sentiment_model(batch)
-                
-                for i, sentiment in enumerate(sentiments):
-                    comments_df.loc[start_idx + i, 'sentiment'] = sentiment['label']
-                    comments_df.loc[start_idx + i, 'confidence'] = sentiment['score']
-                
-                progress = int((batch_idx + 1) / total_batches * 100)
-                progress_bar.progress(progress)
+            # Use cached stance analysis
+            status_text.text("🔄 Menganalisis Stance... (Cached)")
+            sentiments, confidences = cached_stance_analysis(sentiment_model, comments_list, batch_size)
             
+            # Assign results to dataframe
+            for i in range(len(sentiments)):
+                comments_df.loc[i, 'sentiment'] = sentiments[i]
+                comments_df.loc[i, 'confidence'] = confidences[i]
+            
+            progress_bar.progress(1.0)
             status_text.text("✅ Stance Analysis Selesai!")
-            progress_bar.progress(100)
-
+            
+            logging.info("Completed stance analysis")
             st.success("✅ Analisis Stance Selesai!")
             
             st.subheader("📋 Hasil Stance Analysis (20 Data Teratas)")
@@ -528,6 +579,9 @@ if uploaded_file:
             # Create a comprehensive report
             with col3:
                 # Combined report
+                sentiment_lines = ''.join(
+                    f"- {sent}: {count:,}\n" for sent, count in sentiment_counts.items()
+                )
                 report = f"""
 LAPORAN ANALISIS TOPIK DINAMIS DAN STANCE ANALYSIS
 =====================================================
@@ -541,9 +595,9 @@ HASIL TOPIC MODELING:
 - Jumlah Topics: {len(top_topics_df):,}
 - Model: BERTopic
 
-HASIL STANCE ANALYSIS:
+HASIL STANCE ANALISIS:
 - Total Komentar Dianalisis: {len(comments_df):,}
-{(''.join([f'- {sent}: {count:,}\n' for sent, count in sentiment_counts.items()]))}
+{sentiment_lines}
 
 Dibuat pada: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
@@ -554,3 +608,4 @@ Dibuat pada: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                     mime="text/plain",
                     key="download_report"
                 )
+            logging.info("Analysis completed successfully")
