@@ -14,4 +14,3 @@ torch
 wordcloud
 matplotlib
 Cython
-gensim==4.4.0
