@@ -13,4 +13,5 @@ transformers
 torch
 wordcloud
 matplotlib
-gensim
+Cython
+gensim==4.4.0
