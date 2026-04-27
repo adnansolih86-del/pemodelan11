@@ -50,10 +50,17 @@ def cached_topics_over_time(_topic_model, _docs, _timestamps, _nr_bins=20):
     """Cached wrapper for topics_over_time calculation"""
     logging.info("Calculating cached topics over time")
     try:
-        result = _topic_model.topics_over_time(_docs, _timestamps, n_bins=_nr_bins)
-    except (ValueError, TypeError) as e:
-        logging.warning(f"Error dengan n_bins={_nr_bins}: {e}. Menggunakan n_bins=10.")
-        result = _topic_model.topics_over_time(_docs, _timestamps, n_bins=10)
+        # Try without any binning parameter first
+        result = _topic_model.topics_over_time(_docs, _timestamps)
+        logging.info("Used default binning")
+    except Exception as e:
+        logging.warning(f"Error with default parameters: {e}. Trying with nb_bins.")
+        try:
+            result = _topic_model.topics_over_time(_docs, _timestamps, nb_bins=_nr_bins)
+        except Exception as e2:
+            logging.error(f"Error with nb_bins: {e2}. Returning empty DataFrame.")
+            import pandas as pd
+            result = pd.DataFrame()
     logging.info("Completed cached topics over time calculation")
     return result
 
