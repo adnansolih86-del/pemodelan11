@@ -1,6 +1,8 @@
 streamlit
 pandas
 numpy
+scipy
+smart_open
 scikit-learn
 plotly
 bertopic==0.15.0
