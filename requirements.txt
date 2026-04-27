@@ -5,7 +5,7 @@ scipy
 smart_open
 scikit-learn
 plotly
-bertopic==0.15.0
+bertopic
 sentence-transformers
 umap-learn
 hdbscan
