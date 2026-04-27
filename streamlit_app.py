@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import numpy as np
 import os
+import time
 
 st.set_page_config(page_title="Dynamic Topic Modeling & Stance Analysis", layout="wide")
 
@@ -1096,22 +1097,53 @@ if uploaded_file:
             batch_size = 20
             
             logging.info(f"Starting stance analysis on {len(comments_list)} comments with batch size {batch_size}")
-            progress_bar = st.progress(0.0)
-            status_text = st.empty()
+            
+            # Progress bar with percentage
+            progress_bar = st.progress(0.0, text="🔄 Memulai analisis stance...")
+            status_placeholder = st.empty()
+            
+            # Tips placeholder
+            tips_placeholder = st.empty()
+            tips_messages = [
+                "🤖 Model IndoBERT sedang menganalisis sentimen pro dan kontra...",
+                "📊 Mendeteksi opini masyarakat terhadap kebijakan luar negeri...",
+                "⚡ Hampir selesai, sedang menyusun hasil analisis...",
+                "✅ Analisis stance selesai! Menampilkan hasil..."
+            ]
+            
             comments_df['sentiment'] = None
             comments_df['confidence'] = None
             
-            # Use cached stance analysis
-            status_text.text("🔄 Menganalisis Stance... (Cached)")
-            sentiments, confidences = cached_stance_analysis(sentiment_model, comments_list, batch_size)
+            # Use cached stance analysis with progress updates
+            total_comments = len(comments_list)
+            processed = 0
+            
+            with st.spinner('🤖 Sedang membedah opini masyarakat...'):
+                sentiments, confidences = cached_stance_analysis(sentiment_model, comments_list, batch_size)
+                
+                # Simulate progress updates (since cached function doesn't update UI)
+                for i in range(0, total_comments, batch_size):
+                    processed = min(i + batch_size, total_comments)
+                    progress = processed / total_comments
+                    progress_bar.progress(progress, text=f"🔄 Menganalisis {processed}/{total_comments} komentar...")
+                    
+                    # Update tips
+                    tip_idx = min(int(progress * len(tips_messages)), len(tips_messages) - 1)
+                    tips_placeholder.info(tips_messages[tip_idx])
+                    
+                    # Small delay to show progress
+                    time.sleep(0.1)
+            
+            # Final updates
+            progress_bar.progress(1.0, text="✅ Analisis stance selesai!")
+            status_placeholder.success("✅ Analisis Stance Selesai!")
+            tips_placeholder.empty()
+            st.toast('Stance analysis completed!', icon='✅')
             
             # Assign results to dataframe
             for i in range(len(sentiments)):
                 comments_df.loc[i, 'sentiment'] = sentiments[i]
                 comments_df.loc[i, 'confidence'] = confidences[i]
-            
-            progress_bar.progress(1.0)
-            status_text.text("✅ Stance Analysis Selesai!")
             
             logging.info("Completed stance analysis")
             st.success("✅ Analisis Stance Selesai!")
@@ -1382,8 +1414,6 @@ Dibuat pada: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
             else:
                 st.error(f"❌ Gagal menghitung coherence: {coherence_results['error']}")
                 st.info("💡 Pastikan library gensim terinstall dengan benar untuk fitur coherence evaluation.")
-            else:
-                st.error(f"Error calculating coherence: {coherence_results['error']}")
             
             # ========== ADDITIONAL TOPIC METRICS ==========
             st.subheader("📈 Additional Topic Modeling Metrics")
