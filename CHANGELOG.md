@@ -4,6 +4,35 @@
 
 ---
 
+## ✅ Step 11: Topic Modeling Evaluation Metrics
+**Tanggal:** April 27, 2026
+
+### Perubahan:
+- **Topic Coherence Evaluation**: Tambah perhitungan coherence score menggunakan gensim CoherenceModel (C_V measure)
+- **Additional Topic Metrics**: Tambah metrik evaluasi tambahan (topic diversity, document coverage, topic size distribution)
+- **Interactive Metrics Dashboard**: Tampilkan hasil evaluasi dengan visualisasi dan interpretasi
+- **Dependencies Update**: Tambah gensim untuk coherence calculation
+
+### File yang berubah:
+- `streamlit_app.py`: Tambah coherence calculation, topic metrics, dan UI dashboard
+- `requirements.txt`: Tambah gensim
+
+### Metrik Evaluasi yang Ditambahkan:
+1. **Topic Coherence (C_V)**: Mengukur seberapa koheren kata-kata dalam topik
+2. **Topic Diversity**: Rata-rata kata unik per topik  
+3. **Document Coverage**: Persentase dokumen yang terklasifikasi ke topik
+4. **Topic Size Distribution**: Distribusi ukuran topik dan coefficient of variation
+5. **Topic Coherence per Topic**: Score coherence untuk setiap topik individual
+
+### Dampak:
+- **Model Evaluation**: Metrik komprehensif untuk menilai kualitas topic modeling
+- **Quality Assessment**: Interpretasi score coherence untuk menentukan apakah model perlu improvement
+- **Research Rigor**: Metrik standar untuk validasi hasil topic modeling
+- **User Experience**: Dashboard interaktif dengan visualisasi metrik evaluasi
+- **Academic Standard**: Menggunakan metode coherence yang sudah terstandarisasi dalam literatur
+
+---
+
 ## ✅ Step 10: UI/UX Enhancements untuk Presentasi & Evaluasi
 **Tanggal:** April 27, 2026
 

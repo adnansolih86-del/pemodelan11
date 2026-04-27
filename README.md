@@ -24,10 +24,14 @@ Pemodelan Topik Dinamis terhadap unggahan media sosial X dan stance analysist te
 - **Dynamic Topic Modeling**: BERTopic untuk pemodelan topik dinamis pada unggahan media sosial
 - **Stance Analysis**: Analisis sikap (Pro/Netral/Kontra) pada komentar menggunakan IndoBERT
 - **Topics Over Time**: Visualisasi evolusi topik seiring waktu
+- **Model Evaluation**: Metrik evaluasi komprehensif termasuk topic coherence dan diversity metrics
 
 ### 🎨 Interactive UI/UX Features
 - **📊 Data Filters**: Sidebar interaktif untuk filter berdasarkan topik, stance, dan confidence score
 - **☁️ Word Clouds**: Visualisasi word cloud per topik untuk memahami kata kunci representatif
+- **📝 Sample Comments**: Klik untuk lihat sampel komentar acak dan verifikasi klasifikasi model
+- **📈 Real-time Filtering**: Semua visualisasi update secara real-time berdasarkan filter yang dipilih
+- **🎯 Evaluation Dashboard**: Metrik coherence, diversity, dan distribusi topik dengan interpretasi
 - **📝 Sample Comments**: Klik bar chart untuk melihat sampel komentar acak dan verifikasi klasifikasi model
 - **📈 Real-time Filtering**: Semua visualisasi update secara real-time berdasarkan filter yang dipilih
 

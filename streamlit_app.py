@@ -11,6 +11,9 @@ import logging
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+from gensim.models import CoherenceModel
+from gensim.corpora import Dictionary
+import numpy as np
 
 st.set_page_config(page_title="Dynamic Topic Modeling & Stance Analysis", layout="wide")
 
@@ -46,23 +49,150 @@ def cached_fit_transform(_topic_model, _docs):
     return topics, probs
 
 @st.cache_data
-def cached_topics_over_time(_topic_model, _docs, _timestamps, _nr_bins=20):
-    """Cached wrapper for topics_over_time calculation"""
-    logging.info("Calculating cached topics over time")
+def calculate_topic_coherence(_topic_model, _docs, coherence_type='c_v'):
+    """
+    Calculate topic coherence using gensim CoherenceModel
+    
+    Args:
+        _topic_model: Fitted BERTopic model
+        _docs: List of preprocessed documents
+        coherence_type: Type of coherence measure ('c_v', 'c_uci', 'c_npmi', 'u_mass')
+    
+    Returns:
+        dict: Coherence scores for each topic and overall average
+    """
+    logging.info(f"Calculating topic coherence with {coherence_type} measure")
+    
     try:
-        # Try without any binning parameter first
-        result = _topic_model.topics_over_time(_docs, _timestamps)
-        logging.info("Used default binning")
+        # Get topics from BERTopic model
+        topics = _topic_model.get_topics()
+        
+        # Filter out outlier topic (-1)
+        topics = {k: v for k, v in topics.items() if k != -1}
+        
+        if not topics:
+            logging.warning("No valid topics found for coherence calculation")
+            return {"error": "No valid topics found"}
+        
+        # Prepare documents for coherence calculation
+        # Tokenize documents
+        tokenized_docs = [doc.split() for doc in _docs if doc.strip()]
+        
+        # Create dictionary
+        dictionary = Dictionary(tokenized_docs)
+        
+        # Filter out words that appear in less than 5 documents or more than 50% of documents
+        dictionary.filter_extremes(no_below=5, no_above=0.5)
+        
+        # Create corpus
+        corpus = [dictionary.doc2bow(doc) for doc in tokenized_docs]
+        
+        # Prepare topic words for coherence calculation
+        topic_words = []
+        for topic_id in sorted(topics.keys()):
+            # Get top 10 words for each topic
+            words = [word for word, _ in topics[topic_id][:10]]
+            topic_words.append(words)
+        
+        # Calculate coherence
+        coherence_model = CoherenceModel(
+            topics=topic_words,
+            texts=tokenized_docs,
+            corpus=corpus,
+            dictionary=dictionary,
+            coherence=coherence_type
+        )
+        
+        # Get coherence score for each topic
+        topic_coherences = coherence_model.get_coherence_per_topic()
+        
+        # Calculate overall coherence
+        overall_coherence = coherence_model.get_coherence()
+        
+        # Prepare results
+        results = {
+            'overall_coherence': overall_coherence,
+            'topic_coherences': topic_coherences,
+            'coherence_type': coherence_type,
+            'num_topics': len(topic_words)
+        }
+        
+        logging.info(f"Coherence calculation completed: {overall_coherence:.4f}")
+        return results
+        
     except Exception as e:
-        logging.warning(f"Error with default parameters: {e}. Trying with nb_bins.")
-        try:
-            result = _topic_model.topics_over_time(_docs, _timestamps, nb_bins=_nr_bins)
-        except Exception as e2:
-            logging.error(f"Error with nb_bins: {e2}. Returning empty DataFrame.")
-            import pandas as pd
-            result = pd.DataFrame()
-    logging.info("Completed cached topics over time calculation")
-    return result
+        logging.error(f"Error calculating coherence: {e}")
+        return {"error": str(e)}
+
+@st.cache_data
+def calculate_topic_metrics(_topic_model, _docs):
+    """
+    Calculate additional topic modeling evaluation metrics
+    
+    Args:
+        _topic_model: Fitted BERTopic model
+        _docs: List of preprocessed documents
+    
+    Returns:
+        dict: Various topic modeling metrics
+    """
+    logging.info("Calculating additional topic metrics")
+    
+    try:
+        # Get topics info
+        topics_info = _topic_model.get_topic_info()
+        topics = _topic_model.get_topics()
+        
+        # Filter out outlier topic
+        topics_info = topics_info[topics_info['Topic'] != -1]
+        topics = {k: v for k, v in topics.items() if k != -1}
+        
+        if topics_info.empty:
+            return {"error": "No valid topics found"}
+        
+        # Calculate topic diversity (unique words per topic)
+        topic_diversities = []
+        all_words = set()
+        
+        for topic_id, words_weights in topics.items():
+            topic_words = [word for word, _ in words_weights[:10]]
+            topic_diversities.append(len(set(topic_words)))
+            all_words.update(topic_words)
+        
+        avg_topic_diversity = np.mean(topic_diversities)
+        total_unique_words = len(all_words)
+        
+        # Calculate topic size distribution
+        topic_sizes = topics_info['Count'].values
+        topic_size_std = np.std(topic_sizes)
+        topic_size_cv = topic_size_std / np.mean(topic_sizes) if np.mean(topic_sizes) > 0 else 0
+        
+        # Calculate document coverage
+        total_docs = len(_docs)
+        covered_docs = topics_info['Count'].sum()
+        doc_coverage = covered_docs / total_docs if total_docs > 0 else 0
+        
+        # Calculate average topic size
+        avg_topic_size = np.mean(topic_sizes)
+        
+        results = {
+            'num_topics': len(topics),
+            'avg_topic_diversity': avg_topic_diversity,
+            'total_unique_words': total_unique_words,
+            'topic_size_std': topic_size_std,
+            'topic_size_cv': topic_size_cv,  # Coefficient of variation
+            'doc_coverage': doc_coverage,
+            'avg_topic_size': avg_topic_size,
+            'topic_sizes': topic_sizes.tolist(),
+            'topic_diversities': topic_diversities
+        }
+        
+        logging.info(f"Topic metrics calculated: {len(topics)} topics, diversity: {avg_topic_diversity:.2f}")
+        return results
+        
+    except Exception as e:
+        logging.error(f"Error calculating topic metrics: {e}")
+        return {"error": str(e)}
 
 @st.cache_data
 def cached_stance_analysis(_sentiment_model, _comments_list, _batch_size=20):
@@ -739,6 +869,9 @@ if uploaded_file:
                 # Jalankan actual fit_transform
                 topics, probs = cached_fit_transform(topic_model, docs)
                 
+                # Assign topics to posts_df
+                posts_df['Topik'] = topics
+                
                 st.markdown("---")
                 
                 # Progress 3: Topics Over Time
@@ -1077,6 +1210,180 @@ Dibuat pada: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                     mime="text/plain",
                     key="download_report"
                 )
+            
+            # ========== TOPIC COHERENCE EVALUATION ==========
+            st.subheader("🎯 Topic Coherence Evaluation")
+            
+            # Calculate coherence
+            with st.spinner("Calculating topic coherence..."):
+                coherence_results = calculate_topic_coherence(topic_model, docs)
+            
+            if "error" not in coherence_results:
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric(
+                        "📊 Overall Coherence", 
+                        f"{coherence_results['overall_coherence']:.4f}",
+                        help=f"Coherence measure: {coherence_results['coherence_type']}"
+                    )
+                
+                with col2:
+                    st.metric(
+                        "📈 Number of Topics", 
+                        coherence_results['num_topics']
+                    )
+                
+                with col3:
+                    avg_topic_coherence = np.mean(coherence_results['topic_coherences'])
+                    st.metric(
+                        "📉 Average Topic Coherence", 
+                        f"{avg_topic_coherence:.4f}"
+                    )
+                
+                # Coherence interpretation
+                st.subheader("📋 Coherence Interpretation")
+                
+                overall_score = coherence_results['overall_coherence']
+                if overall_score >= 0.6:
+                    coherence_quality = "Excellent"
+                    color = "🟢"
+                elif overall_score >= 0.4:
+                    coherence_quality = "Good"
+                    color = "🟡"
+                elif overall_score >= 0.2:
+                    coherence_quality = "Fair"
+                    color = "🟠"
+                else:
+                    coherence_quality = "Poor"
+                    color = "🔴"
+                
+                st.markdown(f"**{color} Topic Coherence Quality: {coherence_quality}**")
+                
+                with st.expander("📊 Detailed Coherence Scores per Topic"):
+                    coherence_df = pd.DataFrame({
+                        'Topic': [f'Topic {i}' for i in range(len(coherence_results['topic_coherences']))],
+                        'Coherence Score': coherence_results['topic_coherences']
+                    })
+                    coherence_df = coherence_df.sort_values('Coherence Score', ascending=False)
+                    st.dataframe(coherence_df, use_container_width=True)
+                    
+                    # Plot coherence distribution
+                    fig = go.Figure(data=[
+                        go.Bar(
+                            x=coherence_df['Topic'],
+                            y=coherence_df['Coherence Score'],
+                            marker_color='lightblue'
+                        )
+                    ])
+                    fig.update_layout(
+                        title="Topic Coherence Scores",
+                        xaxis_title="Topic",
+                        yaxis_title="Coherence Score",
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with st.expander("ℹ️ About Topic Coherence"):
+                    st.markdown("""
+                    **Topic Coherence** mengukur seberapa baik kata-kata dalam sebuah topik saling berhubungan.
+                    
+                    **Interpretasi Score:**
+                    - **0.6+**: Excellent - Topik sangat koheren
+                    - **0.4-0.6**: Good - Topik cukup koheren  
+                    - **0.2-0.4**: Fair - Topik perlu improvement
+                    - **<0.2**: Poor - Topik kurang bermakna
+                    
+                    **Metode yang digunakan:** C_V (Context Vector)
+                    """)
+            else:
+                st.error(f"Error calculating coherence: {coherence_results['error']}")
+            
+            # ========== ADDITIONAL TOPIC METRICS ==========
+            st.subheader("📈 Additional Topic Modeling Metrics")
+            
+            # Calculate additional metrics
+            with st.spinner("Calculating additional topic metrics..."):
+                topic_metrics = calculate_topic_metrics(topic_model, docs)
+            
+            if "error" not in topic_metrics:
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric(
+                        "🎯 Topic Diversity", 
+                        f"{topic_metrics['avg_topic_diversity']:.1f}",
+                        help="Average unique words per topic (top 10)"
+                    )
+                
+                with col2:
+                    st.metric(
+                        "📊 Document Coverage", 
+                        f"{topic_metrics['doc_coverage']:.1%}",
+                        help="Percentage of documents assigned to topics"
+                    )
+                
+                with col3:
+                    st.metric(
+                        "📏 Topic Size CV", 
+                        f"{topic_metrics['topic_size_cv']:.3f}",
+                        help="Coefficient of variation in topic sizes"
+                    )
+                
+                with col4:
+                    st.metric(
+                        "📚 Unique Words", 
+                        f"{topic_metrics['total_unique_words']:,}",
+                        help="Total unique words across all topics"
+                    )
+                
+                # Topic size distribution
+                with st.expander("📊 Topic Size Distribution"):
+                    fig = go.Figure(data=[
+                        go.Bar(
+                            x=[f'Topic {i}' for i in range(len(topic_metrics['topic_sizes']))],
+                            y=topic_metrics['topic_sizes'],
+                            marker_color='lightgreen'
+                        )
+                    ])
+                    fig.update_layout(
+                        title="Document Distribution Across Topics",
+                        xaxis_title="Topic",
+                        yaxis_title="Number of Documents",
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                # Topic diversity distribution
+                with st.expander("🎨 Topic Diversity Distribution"):
+                    fig = go.Figure(data=[
+                        go.Bar(
+                            x=[f'Topic {i}' for i in range(len(topic_metrics['topic_diversities']))],
+                            y=topic_metrics['topic_diversities'],
+                            marker_color='orange'
+                        )
+                    ])
+                    fig.update_layout(
+                        title="Topic Diversity (Unique Words per Topic)",
+                        xaxis_title="Topic",
+                        yaxis_title="Unique Words",
+                        showlegend=False
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+                
+                with st.expander("ℹ️ About Additional Metrics"):
+                    st.markdown("""
+                    **Topic Diversity**: Rata-rata kata unik dalam top 10 kata setiap topik. Nilai tinggi menunjukkan topik yang beragam.
+                    
+                    **Document Coverage**: Persentase dokumen yang berhasil diklasifikasikan ke topik (bukan outlier).
+                    
+                    **Topic Size CV**: Koefisien variasi ukuran topik. Nilai rendah menunjukkan distribusi yang merata.
+                    
+                    **Unique Words**: Total kata unik yang muncul dalam semua topik.
+                    """)
+            else:
+                st.error(f"Error calculating topic metrics: {topic_metrics['error']}")
+            
             logging.info("Analysis completed successfully")
     elif app_mode == "Validasi Ahli Diplomasi":
         render_expert_validation_ui()
