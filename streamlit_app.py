@@ -51,7 +51,7 @@ def cached_topics_over_time(_topic_model, _docs, _timestamps, _nr_bins=20):
     logging.info("Calculating cached topics over time")
     try:
         result = _topic_model.topics_over_time(_docs, _timestamps, nr_bins=_nr_bins)
-    except ValueError as e:
+    except (ValueError, TypeError) as e:
         logging.warning(f"Error dengan nr_bins={_nr_bins}: {e}. Menggunakan nr_bins=10.")
         result = _topic_model.topics_over_time(_docs, _timestamps, nr_bins=10)
     logging.info("Completed cached topics over time calculation")
