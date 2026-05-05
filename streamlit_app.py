@@ -37,7 +37,8 @@ extra_stopwords = {
     'sudah', 'akan', 'dengan', 'yang', 'dan', 'atau', 'tapi', 'karena', 'jika',
     'kalau', 'saat', 'ketika', 'untuk', 'dari', 'ke', 'di', 'pada', 'oleh', 'dalam',
     'sebagai', 'seperti', 'hanya', 'juga', 'lagi', 'masih', 'bisa', 'boleh', 'harus',
-    'perlu', 'ingin', 'mau', 'suka', 'juga', 'yg'
+    'perlu', 'ingin', 'mau', 'suka', 'juga', 'yg', 'udah', 'banget', 'kalo', 'sih', 
+    'tau', 'pas', 'gitu', 'orang', 'liat', 'buat', 'dr'
 }
 
 if stopwords is not None:
@@ -880,12 +881,12 @@ if uploaded_file:
                 progress_bar.progress(0.25)
                 logging.info("Initializing BERTopic model")
 
-                vectorizer_model = CountVectorizer(ngram_range=(1, 2), min_df=10, max_df=0.5)
+                vectorizer_model = CountVectorizer(ngram_range=(1, 2), min_df=5, max_df=0.8)
                 topic_model = BERTopic(
                     embedding_model=embedding_model,
                     vectorizer_model=vectorizer_model,
-                    nr_topics=30,
-                    min_topic_size=10,
+                    nr_topics="auto",
+                    min_topic_size=50,
                     calculate_probabilities=False,
                 )
                 
