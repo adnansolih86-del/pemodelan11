@@ -1,8 +1,11 @@
 import streamlit as st
 import pandas as pd
 from bertopic import BERTopic
+from bertopic.representation import MaximalMarginalRelevance
 from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer
+from umap import UMAP
+from hdbscan import HDBSCAN
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 from transformers import pipeline
 from datetime import datetime
@@ -86,7 +89,7 @@ uploaded_file = st.file_uploader("Upload dataset CSV", type=["csv"])
 @st.cache_resource
 def load_embedding_model():
     logging.info("Starting load_embedding_model")
-    model = SentenceTransformer("all-MiniLM-L6-v2")
+    model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
     logging.info("Completed load_embedding_model")
     return model
 
@@ -440,12 +443,7 @@ def preprocess_text(text):
     words = [word for word in text.split() if word not in indonesia_stopwords and len(word) > 2]
     text = ' '.join(words)
     
-    if stemmer is not None and text:
-        try:
-            text = stemmer.stem(text)
-        except Exception:
-            pass
-    
+    # Preserve semantic integrity for BERTopic by avoiding stemming
     logging.info(f"Completed preprocess_text: output length: {len(text)}")
     return text
 
@@ -985,13 +983,30 @@ if uploaded_file:
                 progress_bar.progress(0.25)
                 logging.info("Initializing BERTopic model")
 
-                vectorizer_model = CountVectorizer(ngram_range=(1, 2), min_df=5, max_df=0.8)
+                vectorizer_model = CountVectorizer(ngram_range=(1, 2), min_df=2, max_df=0.9)
+                umap_model = UMAP(
+                    n_neighbors=15,
+                    n_components=5,
+                    min_dist=0.0,
+                    metric='cosine',
+                    random_state=42
+                )
+                hdbscan_model = HDBSCAN(
+                    min_cluster_size=20,
+                    metric='euclidean',
+                    cluster_selection_method='eom',
+                    prediction_data=True
+                )
+                representation_model = MaximalMarginalRelevance(diversity=0.3)
                 topic_model = BERTopic(
                     embedding_model=embedding_model,
+                    umap_model=umap_model,
+                    hdbscan_model=hdbscan_model,
                     vectorizer_model=vectorizer_model,
+                    representation_model=representation_model,
                     nr_topics="auto",
-                    min_topic_size=50,
-                    calculate_probabilities=False,
+                    min_topic_size=20,
+                    calculate_probabilities=True,
                 )
                 
                 # Store model in session state immediately

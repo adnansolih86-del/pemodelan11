@@ -12,10 +12,21 @@ import pandas as pd
 import re
 import plotly.express as px
 from bertopic import BERTopic
+from bertopic.representation import MaximalMarginalRelevance
+from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import CountVectorizer
+from umap import UMAP
+from hdbscan import HDBSCAN
 from transformers import pipeline
 
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="Analisis Tesis: Topic & Stance", layout="wide")
+
+custom_stopwords = {
+    'yg', 'ya', 'nya', 'ga', 'gak', 'udah', 'banget', 'kalo', 'sih', 'tau',
+    'pas', 'gitu', 'orang', 'liat', 'buat', 'dr', 'dari', 'ke', 'di', 'dan',
+    'yang', 'ini', 'itu', 'juga', 'untuk', 'dengan', 'atau', 'tapi'
+}
 
 # ==========================================
 # TAHAP 1: PREPROCESSING [Sesuai Blok Diagram]
@@ -24,11 +35,16 @@ def preprocess_text(text):
     if pd.isna(text):
         return ""
     text = str(text).lower()
-    text = re.sub(r"http\S+", "", text) # Hapus URL
-    text = re.sub(r"@\w+", "", text)    # Hapus Mention
-    text = re.sub(r"#\w+", "", text)    # Hapus Hashtag
-    text = re.sub(r"[^\w\s]", "", text) # Hapus Tanda Baca
-    return text.strip()
+    text = re.sub(r"http\S+|www\S+|https\S+", "", text)
+    text = re.sub(r"@\w+", "", text)
+    text = re.sub(r"#(\w+)", r"\1", text)
+    text = re.sub(r"[^\x00-\x7f]", " ", text)
+    text = re.sub(r"\d+", "", text)
+    text = re.sub(r"[^\w\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    words = [word for word in text.split() if word not in custom_stopwords and len(word) > 2]
+    return " ".join(words).strip()
 
 st.title("Sistem Analisis Topik dan Sikap (Stance) Twitter")
 st.markdown("Aplikasi ini disinkronkan dengan arsitektur sistem tesis: **BERTopic & IndoBERT**.")
@@ -61,8 +77,33 @@ if uploaded_file is not None:
         # ==========================================
         with st.spinner("Sedang memproses Dynamic Topic Modeling (BERTopic) pada Unggahan/Artikel..."):
             try:
-                # Inisialisasi BERTopic untuk bahasa Indonesia
-                topic_model = BERTopic(language="indonesian", calculate_probabilities=False)
+                embedding_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+                vectorizer_model = CountVectorizer(ngram_range=(1, 2), min_df=2, max_df=0.9)
+                umap_model = UMAP(
+                    n_neighbors=15,
+                    n_components=5,
+                    min_dist=0.0,
+                    metric='cosine',
+                    random_state=42
+                )
+                hdbscan_model = HDBSCAN(
+                    min_cluster_size=20,
+                    metric='euclidean',
+                    cluster_selection_method='eom',
+                    prediction_data=True
+                )
+                representation_model = MaximalMarginalRelevance(diversity=0.3)
+
+                topic_model = BERTopic(
+                    embedding_model=embedding_model,
+                    umap_model=umap_model,
+                    hdbscan_model=hdbscan_model,
+                    vectorizer_model=vectorizer_model,
+                    representation_model=representation_model,
+                    nr_topics="auto",
+                    min_topic_size=20,
+                    calculate_probabilities=True,
+                )
                 topics, probabilities = topic_model.fit_transform(docs)
                 posts_df['Topik'] = topics
 
