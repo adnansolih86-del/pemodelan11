@@ -50,14 +50,13 @@ extra_stopwords = {
 if stopwords is not None:
     try:
         if nltk is not None:
-            nltk.data.find('corpora/stopwords')
+            try:
+                nltk.data.find('corpora/stopwords')
+            except LookupError:
+                nltk.download('stopwords')
         indonesia_stopwords = set(stopwords.words('indonesian'))
     except Exception:
-        try:
-            nltk.download('stopwords')
-            indonesia_stopwords = set(stopwords.words('indonesian'))
-        except Exception:
-            indonesia_stopwords = set()
+        indonesia_stopwords = set()
 
 if StopWordRemoverFactory is not None:
     try:
@@ -212,10 +211,13 @@ def calculate_topic_coherence(_topic_model, _docs, coherence_type='c_v'):
     """
     logging.info(f"Calculating topic coherence with {coherence_type} measure")
     
+    gensim_available = False
     try:
-        from gensim.models import CoherenceModel
-        from gensim.corpora import Dictionary
+        from gensim.models import CoherenceModel as GenSimCoherenceModel
+        from gensim.corpora import Dictionary as GenSimDictionary
         gensim_available = True
+        CoherenceModel = GenSimCoherenceModel
+        Dictionary = GenSimDictionary
     except ImportError as e:
         logging.warning(f"Gensim not available: {e}. Falling back to native coherence approximation.")
         gensim_available = False
@@ -1249,9 +1251,13 @@ if uploaded_file:
             st.session_state['posts_df'] = posts_df.copy()
             st.session_state['topic_model'] = topic_model
             topic_validation_df = top_topics_df[top_topics_df['Topic'] != -1][['Topic', 'Name']].copy()
-            topic_validation_df['Top Words'] = topic_validation_df['Topic'].apply(
-                lambda topic_id: ", ".join([word for word, _ in topic_model.get_topic(int(topic_id))[:10]])
-            )
+            try:
+                topic_validation_df['Top Words'] = topic_validation_df['Topic'].apply(
+                    lambda topic_id: ", ".join([word for word, _ in topic_model.get_topic(int(topic_id))[:10] if isinstance(_, (int, float))])
+                )
+            except Exception as e:
+                logging.warning(f"Could not extract top words: {e}")
+                topic_validation_df['Top Words'] = "N/A"
             st.session_state['topic_validation_df'] = topic_validation_df
             topic_docs_mapping = {}
             for topic_id, group in posts_df.groupby('Topik'):
@@ -1647,11 +1653,15 @@ Dibuat pada: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.metric(
-                        "📊 Overall Coherence", 
-                        f"{coherence_results['overall_coherence']:.4f}",
-                        help=f"Coherence measure: {coherence_results['coherence_type']}"
-                    )
+                    overall_coh = coherence_results.get('overall_coherence', 0)
+                    if isinstance(overall_coh, (int, float)):
+                        st.metric(
+                            "📊 Overall Coherence", 
+                            f"{float(overall_coh):.4f}",
+                            help=f"Coherence measure: {coherence_results.get('coherence_type', 'N/A')}"
+                        )
+                    else:
+                        st.metric("📊 Overall Coherence", "N/A", help="Could not calculate coherence")
                 
                 with col2:
                     st.metric(
@@ -1669,27 +1679,38 @@ Dibuat pada: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
                 # Coherence interpretation
                 st.subheader("📋 Coherence Interpretation")
                 
-                overall_score = coherence_results['overall_coherence']
-                if overall_score >= 0.6:
-                    coherence_quality = "Excellent"
-                    color = "🟢"
-                elif overall_score >= 0.4:
-                    coherence_quality = "Good"
-                    color = "🟡"
-                elif overall_score >= 0.2:
-                    coherence_quality = "Fair"
-                    color = "🟠"
+                overall_score = coherence_results.get('overall_coherence', 0)
+                if isinstance(overall_score, (int, float)):
+                    overall_score = float(overall_score)
+                    if overall_score >= 0.6:
+                        coherence_quality = "Excellent"
+                        color = "🟢"
+                    elif overall_score >= 0.4:
+                        coherence_quality = "Good"
+                        color = "🟡"
+                    elif overall_score >= 0.2:
+                        coherence_quality = "Fair"
+                        color = "🟠"
+                    else:
+                        coherence_quality = "Poor"
+                        color = "🔴"
                 else:
-                    coherence_quality = "Poor"
-                    color = "🔴"
+                    coherence_quality = "N/A"
+                    color = "⚪"
+                    overall_score = 0
                 
                 st.markdown(f"**{color} Topic Coherence Quality: {coherence_quality}**")
                 
                 with st.expander("📊 Detailed Coherence Scores per Topic"):
-                    coherence_df = pd.DataFrame({
-                        'Topic': [f'Topic {i}' for i in range(len(coherence_results['topic_coherences']))],
-                        'Coherence Score': coherence_results['topic_coherences']
-                    })
+                    try:
+                        topic_coherences = [float(x) if isinstance(x, (int, float)) else 0 for x in coherence_results.get('topic_coherences', [])]
+                        coherence_df = pd.DataFrame({
+                            'Topic': [f'Topic {i}' for i in range(len(topic_coherences))],
+                            'Coherence Score': topic_coherences
+                        })
+                    except Exception as e:
+                        st.error(f"Could not display coherence scores: {e}")
+                        coherence_df = pd.DataFrame()
                     coherence_df = coherence_df.sort_values('Coherence Score', ascending=False)
                     st.dataframe(coherence_df, use_container_width=True)
                     
