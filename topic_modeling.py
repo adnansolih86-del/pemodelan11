@@ -164,8 +164,10 @@ try:
         topic_words = []
         for tid in sorted(topic_model.get_topics().keys()):
             if tid != -1:
-                words = [w for w, _ in topic_model.get_topic(tid)[:10]]
-                topic_words.append(words)
+                words = []
+                for w, _ in topic_model.get_topic(tid)[:10]:
+                    words.extend(w.split())  # Split bigrams into unigrams
+                topic_words.append(list(set(words)))  # Remove duplicates
         
         coherence_model = CoherenceModel(
             topics=topic_words,
