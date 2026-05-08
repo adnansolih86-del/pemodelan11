@@ -148,6 +148,13 @@ venv.bak/
 dmypy.json
 
 # Pyre type checker
+
+# Large model cache files
+results/cache/
+*.pkl
+*.model
+results/*.pkl
+results/**/*.pkl
 .pyre/
 
 # pytype static type analyzer
