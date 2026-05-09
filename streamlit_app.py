@@ -894,7 +894,7 @@ if uploaded_file:
             st.stop()
 
         # Proses posts untuk topic modeling
-        posts_df = df[['full_text', 'created_at']].dropna().drop_duplicates()
+        posts_df = df[['conversation_id_str', 'full_text', 'created_at']].dropna().drop_duplicates(subset=['conversation_id_str'])
         posts_df['created_at'] = pd.to_datetime(posts_df['created_at'])
         posts_df = posts_df.sort_values(by='created_at')
 
@@ -1127,6 +1127,10 @@ if uploaded_file:
                 
                 # Assign topics to posts_df
                 posts_df['Topik'] = topics
+                
+                # Mapping Topik kembali ke dataframe utama berdasarkan conversation_id_str
+                topic_mapping = dict(zip(posts_df['conversation_id_str'], posts_df['Topik']))
+                df['Topik'] = df['conversation_id_str'].map(topic_mapping)
                 
                 st.markdown("---")
                 
@@ -1362,6 +1366,12 @@ if uploaded_file:
                 comments_df.loc[i, 'sentiment'] = sentiments[i]
                 comments_df.loc[i, 'confidence'] = confidences[i]
             
+            # Mapping sentiment kembali ke dataframe utama berdasarkan full_text_comments
+            sentiment_mapping = dict(zip(comments_df['full_text_comments'], comments_df['sentiment']))
+            confidence_mapping = dict(zip(comments_df['full_text_comments'], comments_df['confidence']))
+            df['sentiment'] = df['full_text_comments'].map(sentiment_mapping)
+            df['confidence'] = df['full_text_comments'].map(confidence_mapping)
+            
             logging.info("Completed stance analysis")
             st.success("✅ Analisis Stance Selesai!")
             
@@ -1596,6 +1606,68 @@ if uploaded_file:
             generate_wordcloud("POSITIVE", wc_col1, "👍 Support Words")
             generate_wordcloud("NEGATIVE", wc_col2, "👎 Oppose Words") 
             generate_wordcloud("NEUTRAL", wc_col3, "😐 Neutral Words")
+            
+            # ========== DISTRIBUSI STANCE PER TOPIK ==========
+            st.subheader("📊 Distribusi Stance per Topik")
+            
+            # Gabungkan data topik dan stance berdasarkan conversation_id_str
+            if 'Topik' in df.columns and 'sentiment' in df.columns:
+                # Filter data yang memiliki topik dan sentiment
+                stance_topic_df = df[['conversation_id_str', 'Topik', 'sentiment']].dropna()
+                
+                if not stance_topic_df.empty:
+                    # Kelompokkan berdasarkan Topik dan sentiment
+                    dist_df = stance_topic_df.groupby(['Topik', 'sentiment']).size().reset_index(name='Jumlah')
+                    
+                    # Filter out -1 topics (outliers)
+                    dist_df = dist_df[dist_df['Topik'] != -1]
+                    
+                    if not dist_df.empty:
+                        # Create interactive bar chart dengan Plotly
+                        fig = px.bar(
+                            dist_df,
+                            x="Topik",
+                            y="Jumlah",
+                            color="sentiment",
+                            title="Distribusi Stance (Sentiment) berdasarkan Topik",
+                            barmode="group",
+                            color_discrete_map={
+                                'POSITIVE': '#4ECDC4',
+                                'NEGATIVE': '#FF6B6B', 
+                                'NEUTRAL': '#45B7D1'
+                            },
+                            text_auto=True
+                        )
+                        fig.update_layout(
+                            xaxis_title="Topik",
+                            yaxis_title="Jumlah Komentar",
+                            showlegend=True,
+                            legend_title="Stance"
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        # Save the plot
+                        fig.write_html(os.path.join(results_dir, f"stance_per_topic_{timestamp}.html"))
+                        
+                        # Download button
+                        st.download_button(
+                            label="💾 Simpan Distribusi Stance per Topik (HTML)",
+                            data=convert_figure_to_html(fig),
+                            file_name="stance_per_topic.html",
+                            mime="text/html",
+                            key="download_stance_per_topic"
+                        )
+                        
+                        # Tampilkan tabel distribusi
+                        with st.expander("📋 Tabel Distribusi Lengkap"):
+                            st.dataframe(dist_df.pivot(index='Topik', columns='sentiment', values='Jumlah').fillna(0).astype(int))
+                    else:
+                        st.warning("Tidak ada data distribusi stance per topik yang tersedia.")
+                else:
+                    st.warning("Data topik atau stance tidak lengkap untuk analisis distribusi.")
+            else:
+                st.warning("Kolom Topik atau sentiment tidak ditemukan. Jalankan analisis terlebih dahulu.")
             
             # Download button untuk Summary Sentiment
             summary_df = sentiment_counts.reset_index()
