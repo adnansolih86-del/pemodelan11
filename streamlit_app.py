@@ -247,6 +247,11 @@ def calculate_topic_coherence(_topic_model, _docs, coherence_type='c_v'):
             dictionary = Dictionary(tokenized_docs)
             dictionary.filter_extremes(no_below=5, no_above=0.5)
             corpus = [dictionary.doc2bow(doc) for doc in tokenized_docs]
+            
+            # Check if we have valid data
+            if len(dictionary) == 0 or len(corpus) == 0:
+                raise ValueError("Dictionary or corpus is empty")
+            
             coherence_model = CoherenceModel(
                 topics=topic_words,
                 texts=tokenized_docs,
@@ -256,6 +261,11 @@ def calculate_topic_coherence(_topic_model, _docs, coherence_type='c_v'):
             )
             topic_coherences = coherence_model.get_coherence_per_topic()
             overall_coherence = coherence_model.get_coherence()
+            
+            # Validate coherence score
+            if not isinstance(overall_coherence, (int, float)) or np.isnan(overall_coherence):
+                raise ValueError(f"Invalid coherence score: {overall_coherence}")
+            
             results = {
                 'overall_coherence': overall_coherence,
                 'topic_coherences': topic_coherences,
@@ -266,9 +276,10 @@ def calculate_topic_coherence(_topic_model, _docs, coherence_type='c_v'):
             logging.info(f"Coherence calculation completed with gensim: {overall_coherence:.4f}")
             return results
         except Exception as e:
-            logging.warning(f"Gensim coherence failed, falling back: {e}")
+            logging.warning(f"Gensim coherence failed with error: {e}, falling back to native approximation")
     
     # Fallback coherence calculation without gensim
+    logging.info("Using fallback coherence calculation")
     cooccurrence_counts = {}
     doc_freq = {}
     for doc in tokenized_docs:
@@ -291,12 +302,18 @@ def calculate_topic_coherence(_topic_model, _docs, coherence_type='c_v'):
                 w1, w2 = words[i], words[j]
                 pair = tuple(sorted([w1, w2]))
                 co_occur = cooccurrence_counts.get(pair, 0)
-                if doc_freq.get(w1, 0) > 0 and doc_freq.get(w2, 0) > 0:
-                    score = math.log((co_occur + 1) / (doc_freq[w1] * doc_freq[w2] + 1))
+                freq1 = doc_freq.get(w1, 0)
+                freq2 = doc_freq.get(w2, 0)
+                if freq1 > 0 and freq2 > 0:
+                    # Use positive PMI-like score
+                    pmi = math.log((co_occur + 1) / (freq1 * freq2 + 1))
+                    score = max(0, pmi)  # Ensure non-negative
                 else:
                     score = 0.0
                 pair_scores.append(score)
-        topic_coherences.append(sum(pair_scores) / len(pair_scores) if pair_scores else 0.0)
+        avg_score = sum(pair_scores) / len(pair_scores) if pair_scores else 0.0
+        topic_coherences.append(avg_score)
+    
     overall_coherence = sum(topic_coherences) / len(topic_coherences) if topic_coherences else 0.0
     
     logging.info(f"Fallback coherence calculation completed: {overall_coherence:.4f}")
@@ -385,8 +402,12 @@ def get_time_window_slices(posts_df, months):
         return None
 
     df = posts_df.copy()
-    if not np.issubdtype(df['created_at'].dtype, np.datetime64):
-        df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce')
+    # Handle datetime conversion more robustly
+    if not pd.api.types.is_datetime64_any_dtype(df['created_at']):
+        df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce', utc=True)
+    else:
+        # If already datetime, ensure it's timezone-naive for consistency
+        df['created_at'] = df['created_at'].dt.tz_convert('UTC').dt.tz_localize(None)
 
     df = df.dropna(subset=['created_at'])
     if df.empty:
@@ -414,25 +435,19 @@ def get_time_window_slices(posts_df, months):
 
 
 def render_time_frame_comparison(posts_df):
-    """Render comparison between 2-month and 3-month time windows."""
+    """Render time frame analysis with 3-month windows."""
     if posts_df is None or 'Topik' not in posts_df.columns:
         return
 
-    st.subheader("🕒 Time Frame Comparison: 2 Bulan vs 3 Bulan")
-    frame_choice = st.radio(
-        "Pilih time frame untuk komparasi:",
-        ["2 bulan", "3 bulan"],
-        horizontal=True,
-        key="time_frame_choice"
-    )
-
-    months = 2 if frame_choice == "2 bulan" else 3
+    st.subheader("🕒 Analisis Time Frame: 3 Bulan")
+    
+    months = 3
     time_df = get_time_window_slices(posts_df, months)
     if time_df is None or time_df.empty:
         st.warning("Tidak ada data yang cukup untuk analisis time frame.")
         return
 
-    st.markdown(f"**Analisis window {months} bulan**")
+    st.markdown("**Analisis window 3 bulan**")
     st.dataframe(time_df[['window_start', 'window_end', 'document_count', 'topic_diversity', 'top_topics']].head(12), use_container_width=True)
 
     fig = go.Figure()
@@ -442,7 +457,7 @@ def render_time_frame_comparison(posts_df):
         marker_color='royalblue'
     ))
     fig.update_layout(
-        title=f"Jumlah dokumen per window {months} bulan",
+        title="Jumlah dokumen per window 3 bulan",
         xaxis_title="Window Start",
         yaxis_title="Jumlah Dokumen",
         template='plotly_white',
