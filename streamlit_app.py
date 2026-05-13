@@ -41,7 +41,7 @@ indonesia_stopwords = set()
 extra_stopwords = {
     'yg', 'ya', 'nya', 'ga', 'gak', 'aja', 'kok', 'lah', 'mah', 'dong', 'deh', 'nih',
     'lho', 'loh', 'bro', 'sis', 'gue', 'gua', 'lu', 'loe', 'kamu', 'aku', 'saya',
-    'dia', 'mereka', 'kita', 'kami', 'ini', 'itu', 'ada', 'tidak', 'bukan', 'belum',
+    'dia', 'mereka', 'kita', 'kami', 'ini', 'itu', 'ada', 'belum',
     'sudah', 'akan', 'dengan', 'yang', 'dan', 'atau', 'tapi', 'karena', 'jika',
     'kalau', 'saat', 'ketika', 'untuk', 'dari', 'ke', 'di', 'pada', 'oleh', 'dalam',
     'sebagai', 'seperti', 'hanya', 'juga', 'lagi', 'masih', 'bisa', 'boleh', 'harus',
@@ -68,6 +68,10 @@ if StopWordRemoverFactory is not None:
         pass
 
 indonesia_stopwords.update(extra_stopwords)
+
+# Preserve negation terms because removing 'tidak', 'bukan', 'gak', or 'ga' can change sentiment meaning
+for negation in ['tidak', 'bukan', 'gak', 'ga', 'belum', 'jangan']:
+    indonesia_stopwords.discard(negation)
 
 stemmer = None
 if StemmerFactory is not None:
@@ -406,8 +410,12 @@ def get_time_window_slices(posts_df, months):
     if not pd.api.types.is_datetime64_any_dtype(df['created_at']):
         df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce', utc=True)
     else:
-        # If already datetime, ensure it's timezone-naive for consistency
-        df['created_at'] = df['created_at'].dt.tz_convert('UTC').dt.tz_localize(None)
+        # If already datetime, preserve timezone-awareness if present and normalize
+        if df['created_at'].dt.tz is None:
+            df['created_at'] = df['created_at'].dt.tz_localize('UTC')
+        else:
+            df['created_at'] = df['created_at'].dt.tz_convert('UTC')
+        df['created_at'] = df['created_at'].dt.tz_localize(None)
 
     df = df.dropna(subset=['created_at'])
     if df.empty:
@@ -448,7 +456,11 @@ def render_time_frame_comparison(posts_df, months=3):
     if not pd.api.types.is_datetime64_any_dtype(df['created_at']):
         df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce', utc=True)
     else:
-        df['created_at'] = df['created_at'].dt.tz_convert('UTC').dt.tz_localize(None)
+        if df['created_at'].dt.tz is None:
+            df['created_at'] = df['created_at'].dt.tz_localize('UTC')
+        else:
+            df['created_at'] = df['created_at'].dt.tz_convert('UTC')
+        df['created_at'] = df['created_at'].dt.tz_localize(None)
 
     df = df.dropna(subset=['created_at'])
     if df.empty:
@@ -509,7 +521,11 @@ def get_top_topics_per_period(posts_df, topic_model, months_per_period=3):
     if not pd.api.types.is_datetime64_any_dtype(df['created_at']):
         df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce', utc=True)
     else:
-        df['created_at'] = df['created_at'].dt.tz_convert('UTC').dt.tz_localize(None)
+        if df['created_at'].dt.tz is None:
+            df['created_at'] = df['created_at'].dt.tz_localize('UTC')
+        else:
+            df['created_at'] = df['created_at'].dt.tz_convert('UTC')
+        df['created_at'] = df['created_at'].dt.tz_localize(None)
     
     df = df.dropna(subset=['created_at'])
     if df.empty:
