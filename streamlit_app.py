@@ -434,6 +434,71 @@ def get_time_window_slices(posts_df, months):
     return pd.DataFrame(windows)
 
 
+def render_time_frame_comparison(posts_df, months=3):
+    """Render a comparison of topic activity over time windows."""
+    if posts_df is None or posts_df.empty:
+        st.info("Tidak ada data untuk analisis perbandingan periode waktu.")
+        return
+
+    if 'created_at' not in posts_df.columns or 'Topik' not in posts_df.columns:
+        st.warning("Data tidak memiliki kolom 'created_at' atau 'Topik' yang diperlukan untuk perbandingan periode waktu.")
+        return
+
+    df = posts_df.copy()
+    if not pd.api.types.is_datetime64_any_dtype(df['created_at']):
+        df['created_at'] = pd.to_datetime(df['created_at'], errors='coerce', utc=True)
+    else:
+        df['created_at'] = df['created_at'].dt.tz_convert('UTC').dt.tz_localize(None)
+
+    df = df.dropna(subset=['created_at'])
+    if df.empty:
+        st.warning("Tidak ada data waktu yang valid untuk analisis perbandingan periode waktu.")
+        return
+
+    windows_df = get_time_window_slices(df, months=months)
+    if windows_df is None or windows_df.empty:
+        st.warning("Tidak dapat membuat window waktu untuk data yang diberikan.")
+        return
+
+    windows_df = windows_df.sort_values('window_start')
+    windows_df['window_label'] = windows_df.apply(
+        lambda row: f"{row['window_start'].strftime('%Y-%m-%d')} sampai {row['window_end'].strftime('%Y-%m-%d')}",
+        axis=1
+    )
+
+    st.subheader(f"⏳ Perbandingan Periode {months} Bulan")
+    st.markdown(
+        "Analisis ini menunjukkan jumlah unggahan dan keragaman topik di setiap jendela waktu. "
+        "Gunakan ini untuk melihat pola perubahan topik sepanjang waktu."
+    )
+    st.dataframe(
+        windows_df[['window_label', 'document_count', 'topic_diversity', 'top_topics']],
+        use_container_width=True
+    )
+
+    count_fig = px.bar(
+        windows_df,
+        x='window_label',
+        y='document_count',
+        labels={'window_label': 'Periode', 'document_count': 'Jumlah Post'},
+        title='Jumlah Post per Periode Waktu',
+        text='document_count'
+    )
+    count_fig.update_layout(xaxis_tickangle=-45, margin=dict(t=45, b=150))
+    st.plotly_chart(count_fig, use_container_width=True)
+
+    diversity_fig = px.line(
+        windows_df,
+        x='window_label',
+        y='topic_diversity',
+        markers=True,
+        labels={'window_label': 'Periode', 'topic_diversity': 'Keragaman Topik'},
+        title='Keragaman Topik per Periode Waktu'
+    )
+    diversity_fig.update_layout(xaxis_tickangle=-45, margin=dict(t=45, b=150))
+    st.plotly_chart(diversity_fig, use_container_width=True)
+
+
 def get_top_topics_per_period(posts_df, topic_model, months_per_period=3):
     """Get top topics for each time period."""
     if topic_model is None or posts_df.empty:
