@@ -1,12 +1,13 @@
 """
-Enhanced Streamlit Dashboard for Granular Stance Analysis.
+Enhanced Streamlit Dashboard for Topic-Based Granular Stance Analysis.
 
 Features:
-- Hierarchical display: Post → Comments → Stance Analysis
+- Hierarchical display: Topic → Post → Comments → Stance Analysis
 - Accordion/Expander for collapsible views
 - Color-coding for stance labels
-- Mini-summary statistics per post
+- Mini-summary statistics per post and topic
 - Interactive filter panel (stance, confidence, topic)
+- Integration with topic modeling results
 """
 
 import streamlit as st
@@ -25,6 +26,12 @@ from stance_analysis_granular import (
     initialize_gemini,
     run_granular_stance_analysis,
     aggregate_stance_by_post
+)
+from topic_stance_integration import (
+    load_topic_stance_data,
+    get_topic_summary,
+    get_available_timestamps,
+    load_topic_modeling_results
 )
 
 # Configure logging
@@ -210,8 +217,10 @@ def render_post_with_comments(
             st.subheader("💬 Komentar dan Analisis Sikap")
 
             for idx, row in comments_data.iterrows():
+                # Handle different column names for comments
+                comment_text = row.get("comment_text", row.get("full_text_comments", ""))
                 badge_html = get_stance_badge_html(row["stance_label"], row["stance_weight"])
-                truncated_comment = row["full_text_comments"]
+                truncated_comment = comment_text
                 if len(truncated_comment) > 220:
                     truncated_comment = truncated_comment[:220] + "..."
 
@@ -224,15 +233,16 @@ def render_post_with_comments(
             if st.checkbox(f"Tampilkan detail lengkap untuk {post_id}", key=f"details_{post_id}"):
                 st.subheader("Detail Lengkap Komentar")
                 for idx, row in comments_data.iterrows():
+                    comment_text = row.get("comment_text", row.get("full_text_comments", ""))
                     with st.expander(
-                        f"Komentar {idx + 1}: {row['full_text_comments'][:60]}...",
+                        f"Komentar {idx + 1}: {comment_text[:60]}...",
                         expanded=False
                     ):
                         col1, col2 = st.columns([3, 1])
                         
                         with col1:
                             st.write("**Teks Komentar:**")
-                            st.write(row["full_text_comments"])
+                            st.write(comment_text)
                             
                             st.write("**Alasan Analisis:**")
                             st.write(row.get("stance_reasoning", "Tidak tersedia"))
@@ -260,8 +270,8 @@ def render_post_with_comments(
         st.markdown(f"- **Alasan Singkat:** {row.get('stance_reasoning', 'Tidak tersedia')}")
         st.write("---")
     
-    st.title("📊 Analisis Sikap Granular - Dashboard Interaktif")
-    st.write("Tampilan hierarki: Unggahan Utama → Komentar → Analisis Sikap dengan Color-Coding & Filter Interaktif")
+    st.title("📊 Analisis Sikap Granular Berbasis Topik - Dashboard Interaktif")
+    st.write("Tampilan hierarki: Topik → Unggahan Utama → Komentar → Analisis Sikap dengan Color-Coding & Filter Interaktif")
     
     # Sidebar: Filter controls
     st.sidebar.header("🎛️ Kontrol dan Filter")
@@ -269,14 +279,17 @@ def render_post_with_comments(
     # Data source selection
     data_source = st.sidebar.radio(
         "Pilih sumber data:",
-        options=["Upload File", "Sample Data"]
+        options=["Upload File", "Sample Data", "Topic Modeling Results"]
     )
-    
+
     # Load data
     df = None
     posts_df = None
     comments_df = None
-    
+    merged_df = None
+    topic_summary = None
+    topic_modeling_results = None
+
     if data_source == "Upload File":
         uploaded_file = st.sidebar.file_uploader("Upload dataset CSV", type=["csv"])
         if uploaded_file:
@@ -286,7 +299,29 @@ def render_post_with_comments(
             except Exception as e:
                 st.sidebar.error(f"Error loading dataset: {e}")
                 return
-    else:
+    elif data_source == "Topic Modeling Results":
+        # Get available timestamps
+        available_timestamps = get_available_timestamps("results")
+        if available_timestamps:
+            selected_timestamp = st.sidebar.selectbox(
+                "Pilih periode analisis:",
+                options=available_timestamps,
+                format_func=lambda x: f"{x[:8]} {x[9:11]}:{x[11:13]}:{x[13:15]}"
+            )
+
+            if selected_timestamp:
+                try:
+                    posts_df, comments_df, merged_df = load_topic_stance_data("results", selected_timestamp)
+                    topic_summary = get_topic_summary(merged_df)
+                    topic_modeling_results = load_topic_modeling_results("results", selected_timestamp)
+                    st.sidebar.success(f"Data topic modeling berhasil dimuat! ({len(topic_summary)} topik)")
+                except Exception as e:
+                    st.sidebar.error(f"Error loading topic data: {e}")
+                    logger.error(f"Topic data loading error: {e}", exc_info=True)
+                    return
+        else:
+            st.sidebar.warning("Tidak ada data topic modeling yang tersedia di folder results/")
+    else:  # Sample Data
         # Try to load sample data
         sample_path = "sample_posts_comments.csv"
         if Path(sample_path).exists():
@@ -370,7 +405,7 @@ def render_post_with_comments(
     # Filter controls in sidebar
     if has_stance_analysis:
         st.sidebar.subheader("🔍 Filter Hasil Analisis")
-        
+
         # Stance filter
         stance_options = ["Semua"] + list(comments_df["stance_label"].unique())
         selected_stance = st.sidebar.multiselect(
@@ -378,7 +413,7 @@ def render_post_with_comments(
             options=stance_options,
             default=["Semua"]
         )
-        
+
         # Confidence threshold
         min_confidence = st.sidebar.slider(
             "Bobot Keyakinan Minimum:",
@@ -387,17 +422,32 @@ def render_post_with_comments(
             value=0.0,
             step=0.1
         )
-        
-        # Topic filter (if topic modeling exists)
-        if "topic_id" in comments_df.columns:
+
+        # Topic filter (enhanced for topic modeling)
+        if data_source == "Topic Modeling Results" and topic_summary is not None:
+            topic_options = ["Semua"] + [f"Topik {int(tid)}" for tid in sorted(topic_summary["topic_id"].unique())]
+            selected_topics = st.sidebar.multiselect(
+                "Filter Topik:",
+                options=topic_options,
+                default=["Semua"]
+            )
+            # Convert back to numeric topic IDs
+            selected_topic_ids = []
+            if "Semua" in selected_topics:
+                selected_topic_ids = list(topic_summary["topic_id"].unique())
+            else:
+                selected_topic_ids = [int(t.split()[1]) for t in selected_topics if t != "Semua"]
+        elif "topic_id" in comments_df.columns:
             topic_options = ["Semua"] + sorted(comments_df["topic_id"].unique())
             selected_topics = st.sidebar.multiselect(
                 "Filter Topik:",
                 options=topic_options,
                 default=["Semua"]
             )
+            selected_topic_ids = selected_topics if "Semua" not in selected_topics else comments_df["topic_id"].unique()
         else:
             selected_topics = ["Semua"]
+            selected_topic_ids = None
     
     show_all_posts = st.sidebar.checkbox(
         "Tampilkan semua unggahan secara vertikal (print friendly)",
@@ -408,15 +458,15 @@ def render_post_with_comments(
     if has_stance_analysis:
         # Apply filters
         filtered_comments = comments_df.copy()
-        
+
         if "Semua" not in selected_stance:
             filtered_comments = filtered_comments[filtered_comments["stance_label"].isin(selected_stance)]
-        
+
         if min_confidence > 0:
             filtered_comments = filtered_comments[filtered_comments["stance_weight"] >= min_confidence]
-        
-        if selected_topics and "Semua" not in selected_topics:
-            filtered_comments = filtered_comments[filtered_comments["topic_id"].isin(selected_topics)]
+
+        if selected_topic_ids is not None and len(selected_topic_ids) > 0:
+            filtered_comments = filtered_comments[filtered_comments["topic_id"].isin(selected_topic_ids)]
         
         # Display summary statistics
         st.subheader("📈 Statistik Keseluruhan")
@@ -459,35 +509,84 @@ def render_post_with_comments(
         # Display posts with comments
         st.divider()
         st.subheader("📑 Detail Per Unggahan")
-        
-        # Get aggregated stats per post
-        post_stats_dict = {}
-        for post_id in posts_df["post_id"].unique():
-            post_comments = filtered_comments[filtered_comments["post_id"] == post_id]
-            if len(post_comments) > 0:
-                total = len(post_comments)
-                post_stats_dict[post_id] = {
-                    "mendukung_pct": (post_comments["stance_label"] == "Mendukung").sum() / total * 100,
-                    "menolak_pct": (post_comments["stance_label"] == "Menolak").sum() / total * 100,
-                    "netral_pct": (post_comments["stance_label"] == "Netral").sum() / total * 100,
-                    "avg_weight": post_comments["stance_weight"].mean()
-                }
-        
-        # Display each post
-        for _, post_row in posts_df.iterrows():
-            post_id = post_row["post_id"]
-            post_text = post_row["full_text"]
-            post_comments = filtered_comments[filtered_comments["post_id"] == post_id]
-            
-            if len(post_comments) > 0:
-                post_stats = post_stats_dict.get(post_id, {})
-                render_post_with_comments(
-                    post_id=post_id,
-                    post_text=post_text,
-                    comments_data=post_comments,
-                    post_stats=post_stats,
-                    show_all=show_all_posts
-                )
+
+        if data_source == "Topic Modeling Results" and topic_summary is not None:
+            # Display by topic hierarchy
+            for _, topic_row in topic_summary.iterrows():
+                topic_id = int(topic_row["topic_id"])
+
+                # Skip if topic not in selected filters
+                if selected_topic_ids is not None and topic_id not in selected_topic_ids:
+                    continue
+
+                # Get topic name from topic modeling results
+                topic_name = f"Topik {topic_id}"
+                if topic_modeling_results and topic_id in topic_modeling_results:
+                    topic_info = topic_modeling_results[topic_id]
+                    topic_name = f"Topik {topic_id}: {topic_info.get('name', f'Topik {topic_id}')}"
+
+                with st.expander(f"📂 {topic_name} ({topic_row['post_count']} posts, {topic_row['comment_count']} comments)", expanded=False):
+                    # Topic summary
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Posts", topic_row["post_count"])
+                    with col2:
+                        st.metric("Comments", topic_row["comment_count"])
+                    with col3:
+                        st.metric("🟩 Mendukung", f"{topic_row['mendukung_pct']:.1f}%")
+                    with col4:
+                        st.metric("🟥 Menolak", f"{topic_row['menolak_pct']:.1f}%")
+
+                    # Get posts in this topic
+                    topic_posts = posts_df[posts_df["topic_id"] == topic_id]
+
+                    for _, post_row in topic_posts.iterrows():
+                        post_id = post_row["post_id"]
+                        post_text = post_row["post_text"]
+                        post_comments = filtered_comments[
+                            (filtered_comments["post_id"] == post_id) &
+                            (filtered_comments["topic_id"] == topic_id)
+                        ]
+
+                        if len(post_comments) > 0:
+                            # Calculate post stats
+                            total = len(post_comments)
+                            post_stats = {
+                                "mendukung_pct": (post_comments["stance_label"] == "Mendukung").sum() / total * 100,
+                                "menolak_pct": (post_comments["stance_label"] == "Menolak").sum() / total * 100,
+                                "netral_pct": (post_comments["stance_label"] == "Netral").sum() / total * 100,
+                                "avg_weight": post_comments["stance_weight"].mean()
+                            }
+
+                            render_post_with_comments(
+                                post_id, post_text, post_comments, post_stats, show_all_posts
+                            )
+        else:
+            # Original display logic for non-topic data
+            # Get aggregated stats per post
+            post_stats_dict = {}
+            for post_id in posts_df["post_id"].unique():
+                post_comments = filtered_comments[filtered_comments["post_id"] == post_id]
+                if len(post_comments) > 0:
+                    total = len(post_comments)
+                    post_stats_dict[post_id] = {
+                        "mendukung_pct": (post_comments["stance_label"] == "Mendukung").sum() / total * 100,
+                        "menolak_pct": (post_comments["stance_label"] == "Menolak").sum() / total * 100,
+                        "netral_pct": (post_comments["stance_label"] == "Netral").sum() / total * 100,
+                        "avg_weight": post_comments["stance_weight"].mean()
+                    }
+
+            # Display each post
+            for _, post_row in posts_df.iterrows():
+                post_id = post_row["post_id"]
+                post_text = post_row["full_text"]
+                post_comments = filtered_comments[filtered_comments["post_id"] == post_id]
+
+                if len(post_comments) > 0:
+                    post_stats = post_stats_dict.get(post_id, {})
+                    render_post_with_comments(
+                        post_id, post_text, post_comments, post_stats, show_all_posts
+                    )
     else:
         st.info("📌 Jalankan analisis stance untuk melihat hasil detail.")
 
