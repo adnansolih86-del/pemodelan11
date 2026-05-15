@@ -13,6 +13,7 @@ import re
 import string
 import logging
 import math
+import html
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import matplotlib.pyplot as plt
@@ -690,35 +691,65 @@ def render_vertical_report(posts_df, comments_df, topic_model, months_per_period
                 st.markdown("---")
                 continue
 
-            # Siapkan tampilan tabel komentar dengan stance
-            display_cols = []
-            if 'full_text_comments' in related_comments.columns:
-                display_cols.append('full_text_comments')
-            elif 'full_text_comments_preprocessed' in related_comments.columns:
-                display_cols.append('full_text_comments_preprocessed')
+            # Tampilkan komentar satu per satu dengan badge stance
+            comment_col = None
+            for col_name in ['full_text_comments', 'full_text_comments_preprocessed', 'comment', 'full_text']:
+                if col_name in related_comments.columns:
+                    comment_col = col_name
+                    break
 
-            if 'sentiment' in related_comments.columns:
-                display_cols.append('sentiment')
-            if 'confidence' in related_comments.columns:
-                display_cols.append('confidence')
+            stance_col = None
+            for col_name in ['stance', 'sentiment', 'post_stance', 'model_stance']:
+                if col_name in related_comments.columns:
+                    stance_col = col_name
+                    break
 
-            if not display_cols:
-                st.write("Komentar tersedia tetapi kolom konten/stance tidak ditemukan.")
+            if comment_col is None:
+                st.write("Komentar tersedia tetapi kolom teks komentar tidak ditemukan.")
                 st.markdown("---")
                 continue
 
-            comments_display = related_comments[display_cols].reset_index(drop=True)
+            if stance_col is None:
+                st.write("Komentar tersedia tetapi kolom stance tidak ditemukan.")
+                st.markdown("---")
+                continue
 
-            # Apply styling to stance column if available
-            try:
-                if 'sentiment' in comments_display.columns:
-                    styled = comments_display.style.applymap(_style_stance, subset=['sentiment'])
-                    st.dataframe(styled, use_container_width=True)
+            st.markdown("**Komentar dan Analisis Stance:**")
+            for _, row in related_comments.iterrows():
+                komentar = str(row.get(comment_col, '') or '').strip()
+                stance_val = str(row.get(stance_col, '') or '').strip()
+
+                # Format dan map stance value ke badge yang konsisten
+                stance_label = stance_val
+                stance_key = stance_val.lower().strip()
+                if stance_key in ['pro', 'positive', 'pos', 'positif']:
+                    bg_color = '#28a745'
+                    text_color = '#ffffff'
+                    stance_label = 'Pro'
+                elif stance_key in ['kontra', 'negative', 'neg', 'negatif', 'contra']:
+                    bg_color = '#dc3545'
+                    text_color = '#ffffff'
+                    stance_label = 'Kontra'
                 else:
-                    st.dataframe(comments_display, use_container_width=True)
-            except Exception:
-                # Fallback plain table
-                st.dataframe(comments_display, use_container_width=True)
+                    bg_color = '#ffc107'
+                    text_color = '#212529'
+                    stance_label = stance_val if stance_val else 'Netral'
+
+                safe_comment = html.escape(komentar).replace('\n', '<br>')
+                safe_stance = html.escape(stance_label)
+
+                st.markdown(f"""
+                <div style="padding: 12px 0; border-bottom: 1px solid #eee; display: flex; align-items: flex-start; justify-content: space-between; gap: 15px;">
+                    <div style="flex: 1; font-size: 14px; line-height: 1.5; color: #333;">
+                        {safe_comment}
+                    </div>
+                    <div style="min-width: 90px; text-align: right;">
+                        <span style="background-color: {bg_color}; color: {text_color}; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-block;">
+                            {safe_stance}
+                        </span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
             st.markdown("---")
 
