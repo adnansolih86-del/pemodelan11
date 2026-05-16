@@ -42,10 +42,10 @@ indonesia_stopwords = set()
 extra_stopwords = {
     'yg', 'ya', 'nya', 'ga', 'gak', 'aja', 'kok', 'lah', 'mah', 'dong', 'deh', 'nih',
     'lho', 'loh', 'bro', 'sis', 'gue', 'gua', 'lu', 'loe', 'kamu', 'aku', 'saya',
-    'dia', 'mereka', 'kita', 'kami', 'ini', 'itu', 'ada', 'belum',
+    'dia', 'mereka', 'kita', 'kami', 'itu', 'ada', 'belum',
     'sudah', 'akan', 'dengan', 'yang', 'dan', 'atau', 'tapi', 'karena', 'jika',
-    'kalau', 'saat', 'ketika', 'untuk', 'dari', 'ke', 'di', 'pada', 'oleh', 'dalam',
-    'sebagai', 'seperti', 'hanya', 'juga', 'lagi', 'masih', 'bisa', 'boleh', 'harus',
+    'kalau', 'saat', 'ketika', 'untuk', 'dari', 'ke', 'di', 'pada', 'dalam',
+    'sebagai', 'seperti', 'hanya', 'juga', 'lagi', 'masih', 'bisa', 'boleh',
     'perlu', 'ingin', 'mau', 'suka', 'juga', 'yg', 'udah', 'banget', 'kalo', 'sih', 
     'tau', 'pas', 'gitu', 'orang', 'liat', 'buat', 'dr'
 }
@@ -73,6 +73,10 @@ indonesia_stopwords.update(extra_stopwords)
 # Preserve negation terms because removing 'tidak', 'bukan', 'gak', or 'ga' can change sentiment meaning
 for negation in ['tidak', 'bukan', 'gak', 'ga', 'belum', 'jangan']:
     indonesia_stopwords.discard(negation)
+
+# Preserve important functional words for meaning in stance context
+for preserve_word in ['harus', 'dijawab', 'ini', 'oleh']:
+    indonesia_stopwords.discard(preserve_word)
 
 stemmer = None
 if StemmerFactory is not None:

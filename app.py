@@ -36,7 +36,7 @@ def preprocess_text(text):
         return ""
     text = str(text).lower()
     text = re.sub(r"http\S+|www\S+|https\S+", "", text)
-    text = re.sub(r"@\w+", "", text)
+    text = re.sub(r"@(\w+)", r"\1", text)
     text = re.sub(r"#(\w+)", r"\1", text)
     text = re.sub(r"[^\x00-\x7f]", " ", text)
     text = re.sub(r"\d+", "", text)

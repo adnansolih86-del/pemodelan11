@@ -40,7 +40,8 @@ def preprocess_text(text):
         return ""
     text = str(text).lower()
     text = re.sub(r'http\S+|www\S+', '', text)
-    text = re.sub(r'@\w+|#\w+', '', text)
+    text = re.sub(r'@(\w+)', r'\1', text)
+    text = re.sub(r'#(\w+)', r'\1', text)
     text = re.sub(r'[^\w\s]', ' ', text)
     text = re.sub(r'\d+', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
