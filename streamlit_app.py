@@ -2175,6 +2175,10 @@ if uploaded_file:
                     post_stance_df['period_3m'] = post_stance_df['created_at'].apply(
                         lambda x: f"{x.year}-Q{((x.month - 1) // 3) + 1}" if pd.notna(x) else None
                     )
+
+                # Some display blocks expect stance_confidence even though the aggregated column is avg_confidence.
+                if 'avg_confidence' in post_stance_df.columns and 'stance_confidence' not in post_stance_df.columns:
+                    post_stance_df['stance_confidence'] = post_stance_df['avg_confidence']
             
             if not post_stance_df.empty:
                 st.subheader("� Komentar & Stance per Postingan")
@@ -2334,14 +2338,18 @@ if uploaded_file:
 
             # Gabungkan dengan informasi topik dan periode
             if not post_stance_df.empty and 'conversation_id_str' in posts_df.columns:
-                post_stance_df = post_stance_df.merge(
-                    posts_df[['conversation_id_str', 'Topik', 'created_at', 'full_text']],
-                    on='conversation_id_str',
-                    how='left'
-                )
-                post_stance_df['period_3m'] = post_stance_df['created_at'].apply(
-                    lambda x: f"{x.year}-Q{((x.month - 1) // 3) + 1}" if pd.notna(x) else None
-                )
+                # Only merge if created_at is not already in the dataframe
+                if 'created_at' not in post_stance_df.columns:
+                    post_stance_df = post_stance_df.merge(
+                        posts_df[['conversation_id_str', 'Topik', 'created_at', 'full_text']],
+                        on='conversation_id_str',
+                        how='left'
+                    )
+                # Ensure period_3m is calculated if created_at exists
+                if 'created_at' in post_stance_df.columns:
+                    post_stance_df['period_3m'] = post_stance_df['created_at'].apply(
+                        lambda x: f"{x.year}-Q{((x.month - 1) // 3) + 1}" if pd.notna(x) else None
+                    )
 
             # Tampilkan hasil
             if not post_stance_df.empty:
