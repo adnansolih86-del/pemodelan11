@@ -13,6 +13,10 @@ import os
 import argparse
 import pandas as pd
 from pathlib import Path
+import sys, os
+
+# Ensure project root is on sys.path so local modules can be imported when running from /scripts
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from stance_analysis import run_stance_analysis
 
@@ -62,6 +66,7 @@ def main():
     parser.add_argument('--ground_truth', default='stance_validation_results.csv', help='Optional ground truth CSV')
     parser.add_argument('--outdir', default='results', help='Output directory')
     parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--skip_transformer', action='store_true', help='Skip running the legacy transformer analyzer (avoids model download)')
     args = parser.parse_args()
 
     ensure_dir(args.outdir)
@@ -76,22 +81,32 @@ def main():
     improved_results.to_csv(improved_path, index=False)
     print(f'Improved results saved to {improved_path}')
 
-    # Run transformer legacy analyzer
-    print('Running transformer analyzer (legacy)...')
-    transformer_results = run_stance_analysis(posts_df, comments_df, use_improved=False, confidence_threshold=0.45, batch_size=args.batch_size)
-    transformer_path = os.path.join(args.outdir, 'stance_results_transformer.csv')
-    transformer_results.to_csv(transformer_path, index=False)
-    print(f'Transformer results saved to {transformer_path}')
+    # Run transformer legacy analyzer (optional)
+    transformer_results = None
+    if not args.skip_transformer:
+        print('Running transformer analyzer (legacy)...')
+        try:
+            transformer_results = run_stance_analysis(posts_df, comments_df, use_improved=False, confidence_threshold=0.45, batch_size=args.batch_size)
+            transformer_path = os.path.join(args.outdir, 'stance_results_transformer.csv')
+            transformer_results.to_csv(transformer_path, index=False)
+            print(f'Transformer results saved to {transformer_path}')
+        except Exception as e:
+            print(f'Failed to run transformer analyzer: {e}')
+            print('You can retry without --skip_transformer or run on machine with internet to download model.')
+    else:
+        print('Skipping transformer analyzer as requested (--skip_transformer)')
 
     # Distributions
     compute_distribution(improved_results, os.path.join(args.outdir, 'dist_improved.csv'))
-    compute_distribution(transformer_results, os.path.join(args.outdir, 'dist_transformer.csv'))
+    if transformer_results is not None:
+        compute_distribution(transformer_results, os.path.join(args.outdir, 'dist_transformer.csv'))
 
     # Compute basic metrics if ground truth provided
     if args.ground_truth and os.path.exists(args.ground_truth):
         print('Computing basic metrics using ground truth...')
         compute_basic_metrics(improved_results, args.ground_truth, os.path.join(args.outdir, 'metrics_improved.csv'))
-        compute_basic_metrics(transformer_results, args.ground_truth, os.path.join(args.outdir, 'metrics_transformer.csv'))
+        if transformer_results is not None:
+            compute_basic_metrics(transformer_results, args.ground_truth, os.path.join(args.outdir, 'metrics_transformer.csv'))
         print('Metrics saved to results folder')
     else:
         print('Ground truth not found; only distributions exported.')
