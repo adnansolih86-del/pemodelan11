@@ -1,0 +1,210 @@
+{
+  "total": 23,
+  "correct": 23,
+  "incorrect": 0,
+  "by_class": {
+    "Positive": {
+      "total": 8,
+      "correct": 8,
+      "accuracy": 1.0
+    },
+    "Negative": {
+      "total": 10,
+      "correct": 10,
+      "accuracy": 1.0
+    },
+    "Neutral": {
+      "total": 5,
+      "correct": 5,
+      "accuracy": 1.0
+    }
+  },
+  "errors": [],
+  "predictions": [
+    {
+      "id": "neg_001",
+      "text": "@Menlu_RI Menteri paling gak becus.",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 1.0,
+      "reasoning": "Neg: 1.23 (1w)"
+    },
+    {
+      "id": "neg_002",
+      "text": "@Menlu_RI Mentri tolol",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 1.0,
+      "reasoning": "Neg: 1.00 (1w)"
+    },
+    {
+      "id": "neg_003",
+      "text": "@P3gEl Emang mulut pejabat kita ini kayak kurang makan sekolahan. Buruk sekali p...",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 1.0,
+      "reasoning": "Neg: 1.30 (5w)"
+    },
+    {
+      "id": "neg_004",
+      "text": "@P3gEl Maaf ya kak, Presiden, wapres dan pejabat di negeri ini memang gak punya ...",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 0.9,
+      "reasoning": "Sarcasm pattern detected + negative words"
+    },
+    {
+      "id": "neg_005",
+      "text": "@kompascom Melayani & mengayomi rakyat aja gak becus, pake ditambah tugasnya jad...",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 0.88,
+      "reasoning": "Rhetorical question + negative sentiment"
+    },
+    {
+      "id": "neg_006",
+      "text": "@BILLRAY2019 GOBLOGnya presiden @prabowo gk ada obatnya di dunia international!!...",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 1.0,
+      "reasoning": "Neg: 1.30 (2w)"
+    },
+    {
+      "id": "neg_007",
+      "text": "@susipudjiastuti @prabowo lha dia punya jg buanyaak bgt bu gmana MALING bs tangk...",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 0.88,
+      "reasoning": "Rhetorical question + negative sentiment"
+    },
+    {
+      "id": "neg_008",
+      "text": "Semakin hari semakin terbuka kalau Presiden @prabowo tidak independen dan ada so...",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 1.0,
+      "reasoning": "Neg: 1.04 (1w)"
+    },
+    {
+      "id": "neg_009",
+      "text": "#intinyadeh lebih dr 100 org Indonesia kabur dr Chrey Thum Kamboja. Mereka ngaku...",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 1.0,
+      "reasoning": "Neg: 1.23 (3w)"
+    },
+    {
+      "id": "neg_010",
+      "text": "Melayani rakyat gak becus, pake yang lain-lain",
+      "expected": "Negative",
+      "predicted": "Negative",
+      "confidence": 1.0,
+      "reasoning": "Neg: 1.23 (1w)"
+    },
+    {
+      "id": "pos_001",
+      "text": "@KotaNusantara Program renovasi rumah dari Presiden Prabowo bikin hati lega masa...",
+      "expected": "Positive",
+      "predicted": "Positive",
+      "confidence": 0.78,
+      "reasoning": "Pos: 0.78 (5w)"
+    },
+    {
+      "id": "pos_002",
+      "text": "@KotaNusantara Langkah Presiden Prabowo ini keren banget bikin makin optimis soa...",
+      "expected": "Positive",
+      "predicted": "Positive",
+      "confidence": 0.5,
+      "reasoning": "Pos: 0.50 (3w)"
+    },
+    {
+      "id": "pos_003",
+      "text": "@kusuma4a Hanya bisa berkata terima kasih baktimu TNI ku",
+      "expected": "Positive",
+      "predicted": "Positive",
+      "confidence": 0.8,
+      "reasoning": "Pos: 0.80 (2w)"
+    },
+    {
+      "id": "pos_004",
+      "text": "@kusuma4a Bangga kami atas kinerja TNI",
+      "expected": "Positive",
+      "predicted": "Positive",
+      "confidence": 0.9,
+      "reasoning": "Pos: 0.90 (1w)"
+    },
+    {
+      "id": "pos_005",
+      "text": "Dukungan penuh untuk kebijakan internasional Indonesia yang forward-thinking sep...",
+      "expected": "Positive",
+      "predicted": "Positive",
+      "confidence": 0.9,
+      "reasoning": "Pos: 0.90 (1w)"
+    },
+    {
+      "id": "pos_006",
+      "text": "Setuju 100% dengan kebijakan ini! Ini keputusan yang bijak untuk Indonesia",
+      "expected": "Positive",
+      "predicted": "Positive",
+      "confidence": 0.8600000000000001,
+      "reasoning": "Pos: 0.86 (2w)"
+    },
+    {
+      "id": "pos_007",
+      "text": "Langkah maju yang sangat bagus untuk negara kita",
+      "expected": "Positive",
+      "predicted": "Positive",
+      "confidence": 0.5,
+      "reasoning": "Pos: 0.50 (4w)"
+    },
+    {
+      "id": "pos_008",
+      "text": "Mantap jiwa! Ini yang kami tunggu-tunggu",
+      "expected": "Positive",
+      "predicted": "Positive",
+      "confidence": 0.925,
+      "reasoning": "Pos: 0.93 (2w)"
+    },
+    {
+      "id": "neu_001",
+      "text": "Presiden membuat keputusan ini setelah konsultasi menyeluruh. Implementasi dimul...",
+      "expected": "Neutral",
+      "predicted": "Neutral",
+      "confidence": 0.3,
+      "reasoning": "No sentiment words found"
+    },
+    {
+      "id": "neu_002",
+      "text": "Jumlah peserta mencapai 5000 orang di lokasi acara itu.",
+      "expected": "Neutral",
+      "predicted": "Neutral",
+      "confidence": 0.3,
+      "reasoning": "No sentiment words found"
+    },
+    {
+      "id": "neu_003",
+      "text": "Program ini berlaku mulai tanggal 1 Juni 2026",
+      "expected": "Neutral",
+      "predicted": "Neutral",
+      "confidence": 0.3,
+      "reasoning": "No sentiment words found"
+    },
+    {
+      "id": "neu_004",
+      "text": "Hmm, sebagian setuju sebagian tidak. Ada pro dan kontra yang perlu dipertimbangk...",
+      "expected": "Neutral",
+      "predicted": "Neutral",
+      "confidence": 0.4,
+      "reasoning": "Pos: 0.40 (1w)"
+    },
+    {
+      "id": "neu_005",
+      "text": "Saya tidak yakin apakah ini keputusan yang tepat atau tidak. Perlu waktu untuk l...",
+      "expected": "Neutral",
+      "predicted": "Neutral",
+      "confidence": 0.375,
+      "reasoning": "Pos: 0.38 (1w)"
+    }
+  ],
+  "accuracy": 1.0
+}

@@ -1,0 +1,24 @@
+id,text,expected,predicted,confidence,reasoning
+neg_001,@Menlu_RI Menteri paling gak becus.,Negative,Negative,1.0,Neg: 1.23 (1w)
+neg_002,@Menlu_RI Mentri tolol,Negative,Negative,1.0,Neg: 1.00 (1w)
+neg_003,@P3gEl Emang mulut pejabat kita ini kayak kurang makan sekolahan. Buruk sekali p...,Negative,Negative,1.0,Neg: 1.30 (5w)
+neg_004,"@P3gEl Maaf ya kak, Presiden, wapres dan pejabat di negeri ini memang gak punya ...",Negative,Negative,0.9,Sarcasm pattern detected + negative words
+neg_005,"@kompascom Melayani & mengayomi rakyat aja gak becus, pake ditambah tugasnya jad...",Negative,Negative,0.88,Rhetorical question + negative sentiment
+neg_006,@BILLRAY2019 GOBLOGnya presiden @prabowo gk ada obatnya di dunia international!!...,Negative,Negative,1.0,Neg: 1.30 (2w)
+neg_007,@susipudjiastuti @prabowo lha dia punya jg buanyaak bgt bu gmana MALING bs tangk...,Negative,Negative,0.88,Rhetorical question + negative sentiment
+neg_008,Semakin hari semakin terbuka kalau Presiden @prabowo tidak independen dan ada so...,Negative,Negative,1.0,Neg: 1.04 (1w)
+neg_009,#intinyadeh lebih dr 100 org Indonesia kabur dr Chrey Thum Kamboja. Mereka ngaku...,Negative,Negative,1.0,Neg: 1.23 (3w)
+neg_010,"Melayani rakyat gak becus, pake yang lain-lain",Negative,Negative,1.0,Neg: 1.23 (1w)
+pos_001,@KotaNusantara Program renovasi rumah dari Presiden Prabowo bikin hati lega masa...,Positive,Positive,0.78,Pos: 0.78 (5w)
+pos_002,@KotaNusantara Langkah Presiden Prabowo ini keren banget bikin makin optimis soa...,Positive,Positive,0.5,Pos: 0.50 (3w)
+pos_003,@kusuma4a Hanya bisa berkata terima kasih baktimu TNI ku,Positive,Positive,0.8,Pos: 0.80 (2w)
+pos_004,@kusuma4a Bangga kami atas kinerja TNI,Positive,Positive,0.9,Pos: 0.90 (1w)
+pos_005,Dukungan penuh untuk kebijakan internasional Indonesia yang forward-thinking sep...,Positive,Positive,0.9,Pos: 0.90 (1w)
+pos_006,Setuju 100% dengan kebijakan ini! Ini keputusan yang bijak untuk Indonesia,Positive,Positive,0.8600000000000001,Pos: 0.86 (2w)
+pos_007,Langkah maju yang sangat bagus untuk negara kita,Positive,Positive,0.5,Pos: 0.50 (4w)
+pos_008,Mantap jiwa! Ini yang kami tunggu-tunggu,Positive,Positive,0.925,Pos: 0.93 (2w)
+neu_001,Presiden membuat keputusan ini setelah konsultasi menyeluruh. Implementasi dimul...,Neutral,Neutral,0.3,No sentiment words found
+neu_002,Jumlah peserta mencapai 5000 orang di lokasi acara itu.,Neutral,Neutral,0.3,No sentiment words found
+neu_003,Program ini berlaku mulai tanggal 1 Juni 2026,Neutral,Neutral,0.3,No sentiment words found
+neu_004,"Hmm, sebagian setuju sebagian tidak. Ada pro dan kontra yang perlu dipertimbangk...",Neutral,Neutral,0.4,Pos: 0.40 (1w)
+neu_005,Saya tidak yakin apakah ini keputusan yang tepat atau tidak. Perlu waktu untuk l...,Neutral,Neutral,0.375,Pos: 0.38 (1w)
