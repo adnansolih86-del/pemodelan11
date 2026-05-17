@@ -43,6 +43,7 @@ def _normalize_label(label: str, id2label: Optional[dict] = None) -> str:
 def run_stance_analysis_improved(
     comments_df: pd.DataFrame,
     confidence_threshold: float = 0.45,
+    posts_df: Optional[pd.DataFrame] = None,
     use_signals: bool = True,
     use_sarcasm_detection: bool = True,
 ) -> pd.DataFrame:
@@ -80,6 +81,11 @@ def run_stance_analysis_improved(
     
     # Determine comment column name
     comment_col = 'full_text_comments' if 'full_text_comments' in comments_df.columns else 'clean_comments'
+
+    # Build post context mapping if posts_df provided
+    post_texts = {}
+    if posts_df is not None and 'post_id' in posts_df.columns and 'clean_text' in posts_df.columns:
+        post_texts = posts_df.set_index('post_id')['clean_text'].to_dict()
     
     if comment_col not in comments_df.columns:
         logger.warning(f"Comment column not found. Available: {comments_df.columns.tolist()}")
@@ -92,8 +98,10 @@ def run_stance_analysis_improved(
     # Analyze each comment
     for idx, row in comments_df.iterrows():
         comment_text = str(row[comment_col] or "")
+        post_id = str(row.get('post_id', '')) if 'post_id' in comments_df.columns else ''
+        post_context = post_texts.get(post_id, "")
         if len(comment_text.strip()) > 0:
-            stance, confidence, reasoning = analyzer.analyze(comment_text)
+            stance, confidence, reasoning = analyzer.analyze(comment_text, post_context)
             comments_df.at[idx, 'stance'] = stance
             comments_df.at[idx, 'stance_confidence'] = confidence
     
@@ -106,7 +114,7 @@ def run_stance_analysis(
     comments_df: pd.DataFrame,
     model_name: str = "cardiffnlp/twitter-roberta-base-sentiment-latest",
     batch_size: int = 32,
-    confidence_threshold: float = 0.70,
+    confidence_threshold: float = 0.45,
     use_improved: bool = False,
 ) -> pd.DataFrame:
     """
@@ -135,6 +143,7 @@ def run_stance_analysis(
         return run_stance_analysis_improved(
             comments_df,
             confidence_threshold=confidence_threshold,
+            posts_df=posts_df,
             use_signals=True,
             use_sarcasm_detection=True,
         )
