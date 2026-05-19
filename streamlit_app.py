@@ -2420,7 +2420,7 @@ if uploaded_file:
                                 'NEUTRAL': '#45B7D1'
                             }
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, key='topic_stance_dist')
 
                 # Statistik stance per periode 3 bulan
                 if 'period_3m' in post_stance_df.columns:
@@ -2442,7 +2442,7 @@ if uploaded_file:
                                 'NEUTRAL': '#45B7D1'
                             }
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=True, key='period_stance_dist')
 
                 # Heatmap Topik vs Periode vs Stance
                 if 'Topik' in post_stance_df.columns and 'period_3m' in post_stance_df.columns:
