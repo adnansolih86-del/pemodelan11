@@ -10,14 +10,13 @@ Original file is located at
 import streamlit as st
 import pandas as pd
 import re
-import plotly.express as px
 from bertopic import BERTopic
 from bertopic.representation import MaximalMarginalRelevance
 from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import CountVectorizer
 from umap import UMAP
 from hdbscan import HDBSCAN
-from transformers import pipeline
+from stance_analysis import run_stance_analysis
 
 # Konfigurasi Halaman Streamlit
 st.set_page_config(page_title="Analisis Tesis: Topic & Stance", layout="wide")
@@ -114,29 +113,31 @@ if uploaded_file is not None:
             except Exception as e:
                 st.error(f"Terjadi kesalahan pada Topic Modeling: {e}")
 
+
         # ==========================================
-        # TAHAP 4: STANCE ANALYSIS (IndoBERT)
+        # TAHAP 4: STANCE ANALYSIS
         # ==========================================
-        with st.spinner("Sedang memproses Stance Analysis (IndoBERT) pada Komentar/Reply..."):
-            # CATATAN UNTUK TESIS: Ganti path "indobenchmark/indobert-base-p1" dengan
-            # path model IndoBERT Anda yang SUDAH di-fine-tuning untuk klasifikasi Stance (Pro/Kontra/Netral).
+        with st.spinner("Sedang memproses Stance Analysis pada Komentar/Reply..."):
             try:
-                # Menggunakan pipeline klasifikasi teks dari HuggingFace
-                stance_classifier = pipeline("text-classification", model="indobenchmark/indobert-base-p1", truncation=True, max_length=512)
+                df_sample = df.copy()
+                df_sample['post_id'] = df_sample['conversation_id_str']
+                posts_for_stance = posts_df.rename(
+                    columns={
+                        'conversation_id_str': 'post_id',
+                        'clean_post': 'clean_text'
+                    }
+                )[['post_id', 'clean_text']]
 
-                def get_stance(text):
-                    if not text: return "Netral"
-                    # Prediksi dengan IndoBERT
-                    result = stance_classifier(text)
-                    # Logika ini perlu disesuaikan dengan label hasil fine-tuning model Anda
-                    return result['label']
+                analyzed_comments = run_stance_analysis(
+                    posts_df=posts_for_stance,
+                    comments_df=df_sample,
+                    confidence_threshold=0.45,
+                    use_improved=True,
+                )
 
-                # Limitasi sampel untuk demo agar Streamlit tidak timeout (Hapus .head(100) untuk full data)
-                df_sample = df.copy() # Gunakan df.head(100) jika komputasi terlalu berat di lokal
-
-                # Eksekusi Model
-                # HATI-HATI: Proses ini bisa memakan waktu lama tergantung spesifikasi GPU/CPU
-                df_sample['Sikap'] = df_sample['clean_comment'].apply(get_stance)
+                df_sample = analyzed_comments.copy()
+                df_sample['Sikap'] = df_sample['stance']
+                df_sample['Confidence'] = df_sample['stance_confidence']
 
             except Exception as e:
                 st.error(f"Terjadi kesalahan pada Stance Analysis: {e}")
@@ -145,29 +146,20 @@ if uploaded_file is not None:
         # TAHAP 5: GABUNG TOPIK + SIKAP PER POSTINGAN
         # ==========================================
         st.success("Proses NLP Selesai!")
-        st.write("### Hasil Gabungan Topik & Sikap per Postingan")
-        # Menampilkan kolom yang relevan dari dataset hasil pemrosesan
-        st.dataframe(df_sample[['conversation_id_str', 'full_text', 'Topik', 'full_text_comments', 'Sikap']])
-
-        # ==========================================
-        # TAHAP 6: ANALISIS ISU (Distribusi Stance per Topik)
-        # ==========================================
-        st.write("### Analisis Isu: Distribusi Stance per Topik")
-
-        # Mengelompokkan data berdasarkan Topik dan Sikap
-        dist_df = df_sample.groupby(['Topik', 'Sikap']).size().reset_index(name='Jumlah')
-
-        # Membuat visualisasi bar chart dengan Plotly
-        fig = px.bar(
-            dist_df,
-            x="Topik",
-            y="Jumlah",
-            color="Sikap",
-            title="Distribusi Sikap (Stance) berdasarkan Topik Pembicaraan",
-            barmode="group",
-            text_auto=True
+        st.write("### Hasil Perbaikan Stance Komentar")
+        st.write("Distribusi Stance per Topik dihilangkan untuk mengurangi error. Fokus pada komentar yang sudah ada.")
+        st.dataframe(
+            df_sample[[
+                'conversation_id_str',
+                'full_text',
+                'Topik',
+                'full_text_comments',
+                'Sikap',
+                'Confidence'
+            ]]
         )
-        fig.update_layout(xaxis_title="Cluster Topik", yaxis_title="Jumlah Komentar")
 
-        # Render grafik di Streamlit
-        st.plotly_chart(fig, use_container_width=True)
+        # Ringkasan jumlah stance pada komentar
+        stance_counts = df_sample['Sikap'].value_counts().rename_axis('Sikap').reset_index(name='Jumlah')
+        st.write("#### Ringkasan Stance Komentar")
+        st.dataframe(stance_counts)
